@@ -4,7 +4,7 @@ import { Visibility, VisibilityOff } from 'google-material-icons/outlined'
 import React, { useState } from 'react'
 import Link from 'next/link'
 
-const Login = () => {
+const Register = () => {
     const [showPassword, setShowPassword] = useState(false)
     return (
         <>
@@ -72,16 +72,42 @@ const Login = () => {
                             {/* Header */}
                             <div className="mb-6">
                                 <h1 className="text-xl font-semibold text-[#252525]">
-                                    Sign in to your account
+                                    Create your account
                                 </h1>
 
                                 <p className="mt-1.5 text-xs text-gray-600">
-                                    Welcome back! Please enter your details below.
+                                    Start managing your business smarter today.
                                 </p>
                             </div>
 
                             {/* Form */}
                             <form className="space-y-4">
+
+                                {/* Business Name */}
+                                <div>
+                                    <label className="mb-1 block text-xs font-semibold text-[#222]">
+                                        Business Name <span className="text-red-600">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Ade & Sons Trading"
+                                        className="h-10 w-full rounded-md border border-[#aeb8ae] bg-[#f7faf6] px-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#00804b]"
+                                    />
+                                </div>
+
+                                {/* Owner Full Name */}
+                                <div>
+                                    <label className="mb-1 block text-xs font-semibold text-[#222]">
+                                        Owner Full Name <span className="text-red-600">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        placeholder="Jane Doe"
+                                        className="h-10 w-full rounded-md border border-[#aeb8ae] bg-[#f7faf6] px-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#00804b]"
+                                    />
+                                </div>
 
                                 {/* Work Email */}
                                 <div>
@@ -96,13 +122,30 @@ const Login = () => {
                                     />
                                 </div>
 
+                                {/* Phone Number */}
+                                <div>
+                                    <label className="mb-1 block text-xs font-semibold text-[#222]">
+                                        Phone Number <span className="text-red-600">*</span>
+                                    </label>
+
+                                    <div className="flex h-10">
+                                        <div className="flex w-12 items-center justify-center rounded-l-md border border-r-0 border-[#aeb8ae] bg-[#eef4ed] text-sm text-gray-500">
+                                            +234
+                                        </div>
+
+                                        <input
+                                            type="tel"
+                                            placeholder="801 234 5678"
+                                            className="min-w-0 flex-1 rounded-r-md border border-[#aeb8ae] bg-[#f7faf6] px-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#00804b]"
+                                        />
+                                    </div>
+                                </div>
+
                                 {/* Password */}
                                 <div>
-                                    <div className="flex justify-between items-center mb-1">
-                                        <label className="block text-xs font-semibold text-[#222]">
-                                            Password <span className="text-red-600">*</span>
-                                        </label>
-                                    </div>
+                                    <label className="mb-1 block text-xs font-semibold text-[#222]">
+                                        Password <span className="text-red-600">*</span>
+                                    </label>
 
                                     <div className="relative">
                                         <input
@@ -126,20 +169,30 @@ const Login = () => {
                                             )}
                                         </button>
                                     </div>
+
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Must be at least 8 characters.
+                                    </p>
                                 </div>
 
-                                {/* Remember Me and Forgot Password */}
-                                <div className="flex items-center justify-between pt-1 text-xs">
-                                    <label className="flex items-center gap-2 text-gray-600 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            className="h-4 w-4 rounded border-gray-400 accent-[#007d4a]"
-                                        />
-                                        <span>Remember me</span>
-                                    </label>
-                                    <Link href="/forgetpassword" className="font-medium text-[#007d4a] hover:underline">
-                                        Forgot password?
-                                    </Link>
+                                {/* Terms */}
+                                <div className="flex items-start gap-2.5 pt-1">
+                                    <input
+                                        type="checkbox"
+                                        className="mt-0.5 h-4 w-4 rounded border-gray-400 accent-[#007d4a]"
+                                    />
+
+                                    <p className="text-xs leading-normal text-gray-600">
+                                        I agree to the{" "}
+                                        <a href="#" className="font-medium text-[#007d4a] hover:underline">
+                                            Terms of Service
+                                        </a>{" "}
+                                        and{" "}
+                                        <a href="#" className="font-medium text-[#007d4a] hover:underline">
+                                            Privacy Policy
+                                        </a>
+                                        .
+                                    </p>
                                 </div>
 
                                 {/* Submit */}
@@ -147,19 +200,19 @@ const Login = () => {
                                     type="submit"
                                     className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-md bg-[#007d4a] text-sm font-semibold text-white transition hover:bg-[#006b3f] cursor-pointer"
                                 >
-                                    Sign In
+                                    Create My Business Account
                                     <ArrowRight size={16} />
                                 </button>
                             </form>
 
-                            {/* Sign Up Link */}
+                            {/* Login */}
                             <p className="mt-6 text-center text-xs text-gray-600">
-                                Dont have an account?{" "}
+                                Already have an account?{" "}
                                 <Link
-                                    href="/register"
+                                    href="/login"
                                     className="font-semibold text-[#007d4a] hover:underline"
                                 >
-                                    Sign Up
+                                    Sign In
                                 </Link>
                             </p>
                         </div>
@@ -170,4 +223,4 @@ const Login = () => {
     )
 }
 
-export default Login
+export default Register
