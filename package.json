@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "flowbite-react": "^0.12.17",
+    "google-material-icons": "^2.1.5",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
