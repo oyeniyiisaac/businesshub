@@ -3,13 +3,83 @@ import { ArrowRight, Inventory2, Payments, Security, Store } from 'google-materi
 import { Visibility, VisibilityOff } from 'google-material-icons/outlined'
 import React, { useState } from 'react'
 import Link from 'next/link'
+import { useFormik } from 'formik'
+import * as Yup from 'yup'
 
 const Register = () => {
     const [showPassword, setShowPassword] = useState(false)
+    interface SignupFormValues {
+        businessName: string
+        ownerName: string
+        workEmail: string
+        phoneNumber: string
+        password: string
+        checkActionCode: boolean
+    }
+    interface SignupFormErrors {
+        businessName?: string
+        ownerName?: string
+        workEmail?: string
+        phoneNumber?: string
+        password?: string
+        checkActionCode?: string
+    }
+    const SignupSchema = Yup.object().shape({
+        businessName: Yup.string()
+            .min(2, 'Business name is too short')
+            .required('Business name is required'),
+        ownerName: Yup.string()
+            .min(2, 'Owner name is too short')
+            .required('Owner name is required'),
+        workEmail: Yup.string()
+            .email('Invalid email address')
+            .required('Work email is required'),
+        phoneNumber: Yup.string()
+            .required('Phone number is required'),
+        password: Yup.string()
+            .min(8, 'Password must be at least 8 characters')
+            .required('Password is required'),
+        checkActionCode: Yup.boolean()
+            .oneOf([true], 'Please agree to the terms and conditions')
+    });
+    const formik = useFormik<SignupFormValues>({
+        initialValues: {
+            businessName: '',
+            ownerName: '',
+            workEmail: '',
+            phoneNumber: '',
+            password: '',
+            checkActionCode: false,
+        },
+        validationSchema: SignupSchema,
+        onSubmit: (values,{setSubmitting}) => {
+            setSubmitting(true);
+            try {
+                const response = fetch('http://localhost:3000/api/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(values),
+                });
+                if (!response) {
+                    throw new Error('Network response was not ok');
+                }
+                console.log('User created successfully');
+            } catch (error) {
+                console.error('Error creating user:', error);
+            }
+            console.log(values)
+            formik.setSubmitting(false)
+        },
+    })
+
+    const fieldErrors = formik.errors as SignupFormErrors
+
     return (
         <>
             <div className='min-h-screen w-full flex items-center justify-center bg-[#f4f7f6] p-4 md:p-10'>
-                <div className='flex w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 min-h-[600px]'>
+                <div className='flex w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 min-h-150]'>
 
                     {/* Left panel - Info panel */}
                     <div className='hidden md:flex md:w-[40%] bg-[#485f87] flex-col justify-between p-8 text-white'>
@@ -67,7 +137,7 @@ const Register = () => {
 
                     {/* Right panel - Form panel */}
                     <div className='w-full md:w-[60%] bg-white text-black flex flex-col justify-center items-center p-6 md:p-10'>
-                        <div className="w-full max-w-[400px] rounded-xl border border-gray-200 bg-white px-6 py-8 shadow-md">
+                        <div className="w-full max-w-100 rounded-xl border border-gray-200 bg-white px-6 py-8 shadow-md">
 
                             {/* Header */}
                             <div className="mb-6">
@@ -81,7 +151,7 @@ const Register = () => {
                             </div>
 
                             {/* Form */}
-                            <form className="space-y-4">
+                            <form className="space-y-4" onSubmit={formik.handleSubmit} >
 
                                 {/* Business Name */}
                                 <div>
@@ -91,9 +161,16 @@ const Register = () => {
 
                                     <input
                                         type="text"
+                                        name="businessName"
                                         placeholder="e.g. Ade & Sons Trading"
                                         className="h-10 w-full rounded-md border border-[#aeb8ae] bg-[#f7faf6] px-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#00804b]"
+                                        onChange={formik.handleChange}
+                                        onBlur={formik.handleBlur}
+                                        value={formik.values.businessName}
                                     />
+                                    {formik.touched.businessName && fieldErrors.businessName ? (
+                                        <small className="text-red-600">{fieldErrors.businessName}</small>
+                                    ) : null}
                                 </div>
 
                                 {/* Owner Full Name */}
@@ -104,9 +181,16 @@ const Register = () => {
 
                                     <input
                                         type="text"
+                                        name="ownerName"
                                         placeholder="Jane Doe"
                                         className="h-10 w-full rounded-md border border-[#aeb8ae] bg-[#f7faf6] px-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#00804b]"
+                                        onChange={formik.handleChange}
+                                        onBlur={formik.handleBlur}
+                                        value={formik.values.ownerName}
                                     />
+                                    {formik.touched.ownerName && fieldErrors.ownerName ? (
+                                        <small className="text-red-600">{fieldErrors.ownerName}</small>
+                                    ) : null}
                                 </div>
 
                                 {/* Work Email */}
@@ -117,9 +201,16 @@ const Register = () => {
 
                                     <input
                                         type="email"
+                                        name="workEmail"
                                         placeholder="jane@adeandsons.com"
                                         className="h-10 w-full rounded-md border border-[#aeb8ae] bg-[#f7faf6] px-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#00804b]"
+                                        onChange={formik.handleChange}
+                                        onBlur={formik.handleBlur}
+                                        value={formik.values.workEmail}
                                     />
+                                    {formik.touched.workEmail && fieldErrors.workEmail ? (
+                                        <small className="text-red-600">{fieldErrors.workEmail}</small>
+                                    ) : null}
                                 </div>
 
                                 {/* Phone Number */}
@@ -135,10 +226,17 @@ const Register = () => {
 
                                         <input
                                             type="tel"
+                                            name="phoneNumber"
                                             placeholder="801 234 5678"
                                             className="min-w-0 flex-1 rounded-r-md border border-[#aeb8ae] bg-[#f7faf6] px-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#00804b]"
+                                            onChange={formik.handleChange}
+                                            onBlur={formik.handleBlur}
+                                            value={formik.values.phoneNumber}
                                         />
                                     </div>
+                                    {formik.touched.phoneNumber && fieldErrors.phoneNumber ? (
+                                        <small className="text-red-600">{fieldErrors.phoneNumber}</small>
+                                    ) : null}
                                 </div>
 
                                 {/* Password */}
@@ -150,8 +248,12 @@ const Register = () => {
                                     <div className="relative">
                                         <input
                                             type={showPassword ? "text" : "password"}
+                                            name="password"
                                             placeholder="••••••••"
                                             className="h-10 w-full rounded-md border border-[#aeb8ae] bg-[#f7faf6] px-3 pr-10 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#00804b]"
+                                            onChange={formik.handleChange}
+                                            onBlur={formik.handleBlur}
+                                            value={formik.values.password}
                                         />
 
                                         <button
@@ -173,6 +275,9 @@ const Register = () => {
                                     <p className="mt-1 text-xs text-gray-500">
                                         Must be at least 8 characters.
                                     </p>
+                                    {formik.touched.password && fieldErrors.password ? (
+                                        <small className="text-red-600">{fieldErrors.password}</small>
+                                    ) : null}
                                 </div>
 
                                 {/* Terms */}
@@ -180,6 +285,10 @@ const Register = () => {
                                     <input
                                         type="checkbox"
                                         className="mt-0.5 h-4 w-4 rounded border-gray-400 accent-[#007d4a]"
+                                        onChange={formik.handleChange}
+                                        onBlur={formik.handleBlur}
+                                        name="checkActionCode"
+                                        checked={formik.values.checkActionCode}
                                     />
 
                                     <p className="text-xs leading-normal text-gray-600">
@@ -194,10 +303,14 @@ const Register = () => {
                                         .
                                     </p>
                                 </div>
+                                {formik.touched.checkActionCode && fieldErrors.checkActionCode ? (
+                                    <small className="text-red-600">{fieldErrors.checkActionCode}</small>
+                                ) : null}
 
                                 {/* Submit */}
                                 <button
                                     type="submit"
+                                    disabled={formik.isSubmitting}
                                     className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-md bg-[#007d4a] text-sm font-semibold text-white transition hover:bg-[#006b3f] cursor-pointer"
                                 >
                                     Create My Business Account

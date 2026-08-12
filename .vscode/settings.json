@@ -16,5 +16,18 @@
       "createTheme(?:<\\w+>)?\\s*\\(([^)]*)\\)",
       "{?\\s?[\\w].*:\\s*?[\"'`]([^\"'`]*).*?,?\\s?}?"
     ]
-  ]
+  ],
+  "editor.formatOnSave": true,
+  "workbench.colorTheme": "Dark Modern",
+  "editor.fontFamily": "fira font",
+  "errorLens.alignMessage": {
+    "start": 0,
+    "end": 0,
+    "minimumMargin": 4,
+    "padding": [
+      0,
+      0
+    ],
+    "useFixedPosition": true
+  }
 }
