@@ -7,8 +7,7 @@ const businessSchema = new mongoose.Schema({
   phoneNumber: { type: String, required: true },
   password: { type: String, required: true },
   checkActionCode:{type: Boolean, default: false},
-  createdAt: { type: Date, default: Date.now },
-});
+}, { timestamps: true });
 
 const Business = mongoose.model('Business', businessSchema);
 

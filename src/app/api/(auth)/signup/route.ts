@@ -1,5 +1,6 @@
-import Business from "@/src/app/model/business.model";
+import Business from "@/src/app/model/signup.model";
 import { connectDB } from "@/src/lib/connect";
+import bcrypt from "bcryptjs";
 
 export async function POST(request: Request) {
     const body = await request.json();
@@ -7,7 +8,17 @@ export async function POST(request: Request) {
 
     try {
         await connectDB();
-        const user =  await Business.create(body);
+        const existUser = await Business.findOne({ workEmail: body.workEmail });
+        if(existUser){
+            console.log("User already exists");
+            return new Response(
+                JSON.stringify({ message: "User already exists" }),
+                { status: 400, headers: { "Content-Type": "application/json" } },
+            );
+        }
+        const saltRounds = Number(process.env.SALT_ROUNDS);
+        const hashedPassword = await bcrypt.hash(body.password, (saltRounds));
+        const user =  await Business.create({ ...body, password: hashedPassword });
         return new Response(
             JSON.stringify({ message: "User created successfully", user }),
             { status: 201, headers: { "Content-Type": "application/json" } }

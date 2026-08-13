@@ -5,9 +5,12 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { useFormik } from 'formik'
 import * as Yup from 'yup'
+import { useRouter } from 'next/navigation'
 
 const Register = () => {
+    const router = useRouter()
     const [showPassword, setShowPassword] = useState(false)
+    // const [isSubmitting, setIsSubmitting] = useState(false)
     interface SignupFormValues {
         businessName: string
         ownerName: string
@@ -52,25 +55,56 @@ const Register = () => {
             checkActionCode: false,
         },
         validationSchema: SignupSchema,
-        onSubmit: (values,{setSubmitting}) => {
-            setSubmitting(true);
+        onSubmit: async (values, { setSubmitting }) => {
             try {
-                const response = fetch('http://localhost:3000/api/signup', {
+                const response = await fetch('/api/graphql', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(values),
+                    body: JSON.stringify({
+                        query: `
+                            mutation SignUpUser(
+                                $businessName: String!
+                                $ownerName: String!
+                                $workEmail: String!
+                                $phoneNumber: String!
+                                $password: String!
+                                $checkActionCode: Boolean
+                            ) {
+                                signUpUser(
+                                    businessName: $businessName
+                                    ownerName: $ownerName
+                                    workEmail: $workEmail
+                                    phoneNumber: $phoneNumber
+                                    password: $password
+                                    checkActionCode: $checkActionCode
+                                ) {
+                                    id
+                                }
+                            }
+                        `,
+                        variables: values,
+                    }),
                 });
-                if (!response) {
+
+                if (!response.ok) {
                     throw new Error('Network response was not ok');
                 }
+
+                const result = await response.json();
+                if (result.errors?.length) {
+                    throw new Error(result.errors[0].message || 'GraphQL request failed');
+                }
+
                 console.log('User created successfully');
+                router.push('/login')
             } catch (error) {
                 console.error('Error creating user:', error);
+            } finally {
+                setSubmitting(false)
             }
             console.log(values)
-            formik.setSubmitting(false)
         },
     })
 
@@ -311,9 +345,9 @@ const Register = () => {
                                 <button
                                     type="submit"
                                     disabled={formik.isSubmitting}
-                                    className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-md bg-[#007d4a] text-sm font-semibold text-white transition hover:bg-[#006b3f] cursor-pointer"
+                                    className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-md bg-[#007d4a] text-sm font-semibold text-white transition hover:bg-[#006b3f] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-[#007d4a]"
                                 >
-                                    Create My Business Account
+                                    {formik.isSubmitting ? 'Creating Account...' : 'Create My Business Account'}
                                     <ArrowRight size={16} />
                                 </button>
                             </form>
