@@ -1,34 +1,31 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-
-import "./globals.css";
-import { ApolloProvider } from "./ApolloProvider";
+// src/app/layout.tsx
+import { Inter, JetBrains_Mono } from 'next/font/google';
+import './globals.css';
 
 const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
 });
 
-// const materialIcons = MaterialIcons({
-//   variable: "--font-material-icons",
-//   subsets: ["latin"],
-// });
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
+  display: 'swap',
+});
 
-export const metadata: Metadata = {
-  title: "Business Hub",
-  description: "A platform for managing your business",
-};
-
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${inter.variable} h-full antialiased`}
+      className={`${inter.variable} ${jetbrainsMono.variable}`}
     >
-      <body className="min-h-full flex flex-col">
-        <ApolloProvider>
-          {children}
-        </ApolloProvider>
+      <body className="bg-background text-on-background font-sans antialiased">
+        {children}
       </body>
     </html>
   );

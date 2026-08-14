@@ -3,15 +3,6 @@ import bcrypt from "bcryptjs";
 import { connectDB } from "@/src/lib/connect";
 import jwt from "jsonwebtoken";
 
-type signup = {
-    id?: string;
-    businessName: string;
-    ownerName: string;
-    workEmail: string;
-    phoneNumber: string;
-    password: string;
-    checkActionCode?: boolean;
-};
 export const resolvers = {
     Query: {
         businesses: async () => {
@@ -24,36 +15,6 @@ export const resolvers = {
         },
     },
     Mutation: {
-        signUpUser: async (_: any, { businessName, ownerName, workEmail, phoneNumber, password, checkActionCode }: signup) => {
-            await connectDB();
-            if (!businessName || !ownerName || !workEmail || !phoneNumber || !password) {
-                throw new Error("All fields are required.");
-            }
-            const existingBusiness = await Business.findOne({ workEmail });
-            if (existingBusiness) {
-                throw new Error("Business with this email already exists.");
-            }
-            const saltRounds = Number(process.env.SALT_ROUNDS);
-            const hashedPassword = await bcrypt.hash(password, saltRounds);
-            const newBusiness = new Business({
-                businessName,
-                ownerName,
-                workEmail,
-                phoneNumber,
-                password: hashedPassword,
-                checkActionCode: checkActionCode || false
-            });
-            await newBusiness.save();
-            return {
-                id: newBusiness._id.toString(),
-                businessName: newBusiness.businessName,
-                ownerName: newBusiness.ownerName,
-                workEmail: newBusiness.workEmail,
-                phoneNumber: newBusiness.phoneNumber,
-                password: newBusiness.password,
-                checkActionCode: newBusiness.checkActionCode
-            };
-        },
 
         signInUser: async (_: any, { workEmail, password }: { workEmail: string; password: string }) => {
             await connectDB();

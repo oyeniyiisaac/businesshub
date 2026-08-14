@@ -1,64 +1,136 @@
-import { Store } from 'google-material-icons/filled'
-import Link from 'next/link'
-import React from 'react'
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { Close, Store } from 'google-material-icons/filled';
+import { Menu } from 'google-material-icons/outlined';
+// import { Store, Menu, X } from 'lucide-react'; // Recommended icon package: npm i lucide-react
 
 const Navbar = () => {
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
     return (
-        <nav className="bg-white shadow-md sticky top-0 z-50 w-full h-16 flex items-center border-b border-gray-100">
-            <div className="max-w-screen-xl mx-auto px-4 md:px-8 w-full">
+        <nav className="bg-surface-lowest border-b border-outline-variant sticky top-0 z-50 w-full h-16 flex items-center shadow-sm transition-colors">
+            <div className="max-w-7xl mx-auto px-4 md:px-8 w-full">
                 <div className="flex items-center justify-between">
-                    {/* Logo */}
+
+                    {/* Brand Logo */}
                     <Link href="/" className="flex items-center gap-2 group">
-                        <div className="w-8 h-8 bg-[#00804b] rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Store className="text-white text-xl" />
+                        <div className="w-9 h-9 bg-primary rounded-md flex items-center justify-center group-hover:bg-primary-container transition-colors shadow-sm">
+                            <Store className="text-on-primary w-5 h-5" />
                         </div>
-                        <span className="text-xl font-bold text-gray-900 tracking-tight">
-                            Business<span className="text-[#00804b]">Hub</span>
+                        <span className="text-headline-lg-mobile md:text-headline-lg text-on-surface tracking-tight">
+                            Business<span className="text-primary">Hub</span>
                         </span>
                     </Link>
 
-                    {/* Desktop Menu */}
+                    {/* Desktop Navigation Links */}
                     <div className="hidden md:flex items-center gap-8">
-                        <Link href="/" className="text-gray-700 hover:text-[#00804b] transition-colors text-sm font-medium">
+                        <Link
+                            href="/"
+                            className="text-body-sm font-medium text-on-surface-variant hover:text-primary transition-colors"
+                        >
                             Home
                         </Link>
-                        <Link href="#features" className="text-gray-700 hover:text-[#00804b] transition-colors text-sm font-medium">
+                        <Link
+                            href="#features"
+                            className="text-body-sm font-medium text-on-surface-variant hover:text-primary transition-colors"
+                        >
                             Features
                         </Link>
-                        <Link href="#pricing" className="text-gray-700 hover:text-[#00804b] transition-colors text-sm font-medium">
+                        <Link
+                            href="#pricing"
+                            className="text-body-sm font-medium text-on-surface-variant hover:text-primary transition-colors"
+                        >
                             Pricing
                         </Link>
-                        <Link href="#contact" className="text-gray-700 hover:text-[#00804b] transition-colors text-sm font-medium">
+                        <Link
+                            href="#contact"
+                            className="text-body-sm font-medium text-on-surface-variant hover:text-primary transition-colors"
+                        >
                             Contact
                         </Link>
                     </div>
 
-                    {/* Auth Buttons */}
-                    <div className="hidden md:flex items-center gap-4">
+                    {/* Auth Actions */}
+                    <div className="hidden md:flex items-center gap-3">
                         <Link
                             href="/login"
-                            className="text-[#00804b] hover:bg-green-50/50 transition-colors font-medium text-sm px-4 py-2 rounded-md"
+                            className="text-body-sm font-semibold text-primary hover:bg-surface-container-low transition-colors px-4 py-2 rounded-DEFAULT"
                         >
                             Log In
                         </Link>
                         <Link
                             href="/register"
-                            className="bg-[#00804b] hover:opacity-90 transition-opacity font-medium text-white text-sm px-4 py-2 rounded-md shadow-sm"
+                            className="text-body-sm font-semibold bg-primary hover:bg-primary-container text-on-primary transition-colors px-4 py-2 rounded-sm shadow-sm active:scale-[0.98]"
                         >
                             Get Started
                         </Link>
                     </div>
 
-                    {/* Mobile Menu Button */}
-                    <button className="md:hidden text-gray-700 hover:text-[#00804b] transition-colors">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
+                    {/* Mobile Menu Toggle Button */}
+                    <button
+                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                        className="md:hidden p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container rounded-DEFAULT transition-colors"
+                        aria-label="Toggle Navigation Menu"
+                    >
+                        {mobileMenuOpen ? <Close className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                     </button>
                 </div>
+
+                {/* Mobile Navigation Drawer */}
+                {mobileMenuOpen && (
+                    <div className="md:hidden bg-surface-lowest border-t border-outline-variant py-4 px-2 space-y-3 mt-2 rounded-b-lg shadow-lg">
+                        <Link
+                            href="/"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container-low rounded-DEFAULT"
+                        >
+                            Home
+                        </Link>
+                        <Link
+                            href="#features"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container-low rounded-DEFAULT"
+                        >
+                            Features
+                        </Link>
+                        <Link
+                            href="#pricing"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container-low rounded-DEFAULT"
+                        >
+                            Pricing
+                        </Link>
+                        <Link
+                            href="#contact"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container-low rounded-DEFAULT"
+                        >
+                            Contact
+                        </Link>
+
+                        <div className="pt-4 border-t border-outline-variant flex flex-col gap-2">
+                            <Link
+                                href="/login"
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="text-center text-body-sm font-semibold text-primary bg-surface-container-low hover:bg-surface-container px-4 py-2 rounded-DEFAULT transition-colors"
+                            >
+                                Log In
+                            </Link>
+                            <Link
+                                href="/register"
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="text-center text-body-sm font-semibold bg-primary text-on-primary hover:bg-primary-container px-4 py-2 rounded-DEFAULT transition-colors"
+                            >
+                                Get Started
+                            </Link>
+                        </div>
+                    </div>
+                )}
             </div>
         </nav>
-    )
-}
+    );
+};
 
-export default Navbar
+export default Navbar;

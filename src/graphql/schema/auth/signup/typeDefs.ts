@@ -1,12 +1,8 @@
 import gql from "graphql-tag";
 
 
-export const typeDefs = gql`
-    type AuthPayload {
-        token: String!
-        user: Business!
-    }
 
+export const typeDefs = gql`
     type Business {
         id: ID!
         businessName: String!
@@ -24,6 +20,5 @@ export const typeDefs = gql`
 
     extend type Mutation {
         signUpUser(businessName: String!, ownerName: String!, workEmail: String!, phoneNumber: String!, password: String!, checkActionCode: Boolean): Business!
-        signInUser(workEmail: String!, password: String!): AuthPayload!
     }
 `;
