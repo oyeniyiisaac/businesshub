@@ -93,7 +93,7 @@ const Login = () => {
 
         localStorage.setItem("authToken", authPayload.token);
 
-        router.push("/");
+        router.push("/dashboard");
       } catch (error) {
         setSubmitError(error instanceof Error ? error.message : "Unable to sign in");
       } finally {
