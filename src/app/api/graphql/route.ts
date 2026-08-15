@@ -6,7 +6,6 @@ import { typeDefs as forgetPasswordTypeDefs } from "@/src/graphql/schema/auth/fo
 import { typeDefs as dashboardTypeDefs } from "@/src/graphql/schema/dashboard/typeDefs";
 import { typeDefs as productTypeDefs } from "@/src/graphql/schema/product/typeDefs";
 
-
 import { resolvers as blogResolvers } from "@/src/graphql/schema/blog/resolvers";
 import { resolvers as signInResolvers } from "@/src/graphql/schema/auth/signin/resolvers";
 import { resolvers as signUpResolvers } from "@/src/graphql/schema/auth/signup/resolvers";
@@ -14,7 +13,6 @@ import { resolvers as resetPasswordResolvers } from "@/src/graphql/schema/auth/r
 import { resolvers as forgetPasswordResolvers } from "@/src/graphql/schema/auth/forgetpassword/resolvers";
 // import { resolvers as dashboardResolvers } from "@/src/graphql/schema/dashboard/resolvers";
 import { resolvers as productResolvers } from "@/src/graphql/schema/product/resolvers";
-
 
 import { ApolloServer } from "@apollo/server";
 import { startServerAndCreateNextHandler } from "@as-integrations/next";
@@ -40,8 +38,15 @@ const apolloServer = new ApolloServer({
     },
 });
 
-const handler = startServerAndCreateNextHandler(apolloServer);
+// Pass global Web standard <Request> as generic to force App Router typing
+const handler = startServerAndCreateNextHandler<Request>(apolloServer, {
+    context: async (req) => ({ req }),
+});
 
-export const GET = handler;
-export const POST = handler;
+export async function GET(request: Request) {
+    return handler(request);
+}
 
+export async function POST(request: Request) {
+    return handler(request);
+}
