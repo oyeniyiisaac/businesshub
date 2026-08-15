@@ -67,8 +67,8 @@ const stockLevelSchema = new Schema<IStockLevel>(
 const productSchema = new Schema<IProduct>(
   {
     name: { type: String, required: true, trim: true },
-    category: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
-    brand: { type: Schema.Types.ObjectId, ref: 'Brand' },
+    category: { type: String, required: true, trim: true }, 
+    brand: { type: String, trim: true }, 
     description: { type: String, trim: true },
 
     // Embedding the nested objects

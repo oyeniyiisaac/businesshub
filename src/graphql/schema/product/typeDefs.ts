@@ -54,28 +54,28 @@ export const typeDefs = gql`
     }
 
     extend type Mutation {
-        addProduct(
-            name: String!
-            category: ID!
-            brand: ID
-            description: String
-            inventoryTracking: InventoryTrackingInput!
-            pricing: PricingAndTaxInput!
-            stockLevel: StockLevelInput!
-        ): Product!
+    addProduct(
+        name: String!
+        category: String!
+        brand: String
+        description: String
+        inventoryTracking: InventoryTrackingInput!
+        pricing: PricingAndTaxInput!
+        stockLevel: StockLevelInput!
+    ): Product!
 
-        updateProduct(
-            id: ID!
-            name: String
-            category: ID
-            brand: ID
-            description: String
-            inventoryTracking: InventoryTrackingInput
-            pricing: PricingAndTaxInput
-            stockLevel: StockLevelInput
-        ): Product!
+    createProduct(
+        name: String!
+        category: String!
+        brand: String
+        description: String
+        inventoryTracking: InventoryTrackingInput!
+        pricing: PricingAndTaxInput!
+        stockLevel: StockLevelInput!
+    ): Product!
 
-        deleteProduct(id: ID!): Boolean!
-    }
+    updateProduct(id: ID!): Product!
+    deleteProduct(id: ID!): Boolean!
+}
 
 `

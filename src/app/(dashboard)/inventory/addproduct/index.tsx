@@ -12,6 +12,7 @@ import {
     QrCodeScanner,
     Warehouse,
 } from 'google-material-icons/outlined';
+import { BarcodeScanner } from './components';
 
 export default function AddProductPage() {
     // 1. FORM STATES
@@ -24,6 +25,7 @@ export default function AddProductPage() {
     const [sku, setSku] = useState('');
     const [unitOfMeasure, setUnitOfMeasure] = useState('Pcs (Pieces)');
     const [barcode, setBarcode] = useState('');
+    const [isScanning, setIsScanning] = useState(false);
 
     // Pricing & Tax State
     const [costPrice, setCostPrice] = useState<number | ''>('');
@@ -36,6 +38,7 @@ export default function AddProductPage() {
     const [enableLowStockAlerts, setEnableLowStockAlerts] = useState<boolean>(true);
 
     const [loading, setLoading] = useState(false);
+
 
     // 2. SAVE PRODUCT FUNCTION
     const saveProduct = async () => {
@@ -80,7 +83,7 @@ export default function AddProductPage() {
                     `,
                     variables: {
                         name: name,
-                        category: category || "Electronics", // Must be a non-empty string matching select option
+                        category: category || "", // Must be a non-empty string matching select option
                         brand: brand || null,
                         description: description || "",
                         inventoryTracking: {
@@ -195,10 +198,10 @@ export default function AddProductPage() {
                                     className="w-full bg-surface-container-low border border-outline-variant rounded-DEFAULT px-3 py-2 text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                 >
                                     <option value="">Select Category</option>
-                                    <option value="65f1234567890abcdef12345">Electronics</option>
-                                    <option value="65f1234567890abcdef12346">Mobile Phones</option>
-                                    <option value="65f1234567890abcdef12347">Furniture</option>
-                                    <option value="65f1234567890abcdef12348">Office Supplies</option>
+                                    <option value="Electronics">Electronics</option>
+                                    <option value="Mobile Phones">Mobile Phones</option>
+                                    <option value="Furniture">Furniture</option>
+                                    <option value="Office Supplies">Office Supplies</option>
                                 </select>
                             </div>
 
@@ -212,9 +215,9 @@ export default function AddProductPage() {
                                     className="w-full bg-surface-container-low border border-outline-variant rounded-DEFAULT px-3 py-2 text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                 >
                                     <option value="">Select Brand</option>
-                                    <option value="65f1234567890abcdef67890">Samsung</option>
-                                    <option value="65f1234567890abcdef67891">Apple</option>
-                                    <option value="65f1234567890abcdef67892">HP</option>
+                                    <option value="Samsung">Samsung</option>
+                                    <option value="Apple">Apple</option>
+                                    <option value="HP">HP</option>
                                 </select>
                             </div>
                         </div>
@@ -314,11 +317,22 @@ export default function AddProductPage() {
                                 />
                                 <button
                                     type="button"
+                                    onClick={() => { setIsScanning(true); }}
                                     className="p-2.5 bg-surface-container border border-outline-variant rounded-DEFAULT text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0"
                                     title="Scan Barcode"
                                 >
                                     <QrCodeScanner className="w-5 h-5" />
                                 </button>
+                                {/* Conditionally render the component in JSX */}
+                                {isScanning && (
+                                    <BarcodeScanner
+                                        onScanSuccess={(scannedText) => {
+                                            setBarcode(scannedText); // Populate input field
+                                            setIsScanning(false);    // Close scanner modal
+                                        }}
+                                        onClose={() => setIsScanning(false)}
+                                    />
+                                )}
                             </div>
                         </div>
                     </div>
