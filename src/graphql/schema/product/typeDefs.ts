@@ -34,4 +34,48 @@ export const typeDefs = gql`
         products: [Product!]!
         product(id: ID!): Product
     }
+
+    input InventoryTrackingInput {
+        sku: String
+        unitOfMeasure: String!
+        barcode: String
+    }
+
+    input PricingAndTaxInput {
+        costPrice: Float!
+        sellingPrice: Float!
+        taxRule: String!
+    }
+
+    input StockLevelInput {
+        initialQuantity: Int!
+        lowStockThreshold: Int!
+        enableLowStockAlerts: Boolean!
+    }
+
+    extend type Mutation {
+        addProduct(
+            name: String!
+            category: ID!
+            brand: ID
+            description: String
+            inventoryTracking: InventoryTrackingInput!
+            pricing: PricingAndTaxInput!
+            stockLevel: StockLevelInput!
+        ): Product!
+
+        updateProduct(
+            id: ID!
+            name: String
+            category: ID
+            brand: ID
+            description: String
+            inventoryTracking: InventoryTrackingInput
+            pricing: PricingAndTaxInput
+            stockLevel: StockLevelInput
+        ): Product!
+
+        deleteProduct(id: ID!): Boolean!
+    }
+
 `
