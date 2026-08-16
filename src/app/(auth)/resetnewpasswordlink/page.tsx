@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { gql, } from '@apollo/client';
+import { gql } from '@apollo/client';
 import { ArrowLeft, Rotate90DegreesCcw } from 'google-material-icons/filled';
 import { Visibility, VisibilityOff } from 'google-material-icons/outlined';
 import { useMutation } from '@apollo/client/react';
@@ -19,10 +19,23 @@ const RESET_FORGOT_PASSWORD_MUTATION = gql`
   }
 `;
 
+interface ResetForgotPasswordData {
+  resetForgotPassword: {
+    success: boolean;
+    message: string;
+  };
+}
+
+interface ResetForgotPasswordVariables {
+  token: string;
+  newPassword: string;
+}
+
+// Inner Component containing the useSearchParams logic
 function ResetFormContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams ? searchParams.get('token') : null;
+  const token = searchParams.get('token');
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -34,9 +47,10 @@ function ResetFormContent() {
     text: string;
   } | null>(null);
 
-  const [resetForgotPassword, { loading }] = useMutation(
-    RESET_FORGOT_PASSWORD_MUTATION
-  );
+  const [resetForgotPassword, { loading }] = useMutation<
+    ResetForgotPasswordData,
+    ResetForgotPasswordVariables
+  >(RESET_FORGOT_PASSWORD_MUTATION);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +100,7 @@ function ResetFormContent() {
     } catch (err: any) {
       setStatusMessage({
         type: 'error',
-        text: err?.message || 'Something went wrong.',
+        text: err.message || 'Something went wrong.',
       });
     }
   };
@@ -97,10 +111,12 @@ function ResetFormContent() {
       style={{ fontFamily: 'var(--font-inter), sans-serif' }}
     >
       <div className="w-full max-w-md bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-xl p-8 text-center">
+        {/* Top Logo Icon */}
         <div className="mx-auto w-12 h-12 rounded-full bg-primary flex items-center justify-center text-on-primary mb-4 shadow-sm">
           <Rotate90DegreesCcw className="w-6 h-6" />
         </div>
 
+        {/* Header Title */}
         <h1 className="text-2xl font-bold text-primary tracking-tight">
           BusinessHub NG
         </h1>
@@ -108,6 +124,7 @@ function ResetFormContent() {
           Create a new secure password.
         </p>
 
+        {/* Feedback Messages */}
         {statusMessage && (
           <div
             className={`mb-4 p-3 text-xs rounded-lg font-medium text-left ${
@@ -120,7 +137,9 @@ function ResetFormContent() {
           </div>
         )}
 
+        {/* Reset Form */}
         <form onSubmit={handleSubmit} className="space-y-5 text-left">
+          {/* New Password Field */}
           <div>
             <label className="block text-xs font-semibold text-on-surface mb-1">
               New Password
@@ -151,6 +170,7 @@ function ResetFormContent() {
             </p>
           </div>
 
+          {/* Confirm Password Field */}
           <div>
             <label className="block text-xs font-semibold text-on-surface mb-1">
               Confirm New Password
@@ -178,6 +198,7 @@ function ResetFormContent() {
             </div>
           </div>
 
+          {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}
@@ -187,6 +208,7 @@ function ResetFormContent() {
           </button>
         </form>
 
+        {/* Back to Sign In Link */}
         <div className="mt-6">
           <Link
             href="/signin"
@@ -201,7 +223,8 @@ function ResetFormContent() {
   );
 }
 
-export default function ResetPasswordPage() {
+
+export default function ResetForm() {
   return (
     <Suspense
       fallback={
