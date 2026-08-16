@@ -254,7 +254,7 @@ const Login = () => {
                     <span>Remember me</span>
                   </label>
                   <Link
-                    href={"/login/forgetpassword"}
+                    href={"/forgetpassword"}
                     className="font-medium text-primary hover:underline"
                   >
                     Forgot password?
