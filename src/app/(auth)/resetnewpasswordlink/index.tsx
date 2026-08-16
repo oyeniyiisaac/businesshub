@@ -8,7 +8,6 @@ import { ArrowLeft, Rotate90DegreesCcw } from 'google-material-icons/filled';
 import { Visibility, VisibilityOff } from 'google-material-icons/outlined';
 import { useMutation } from '@apollo/client/react';
 
-export const dynamic = 'force-dynamic';
 
 const RESET_FORGOT_PASSWORD_MUTATION = gql`
   mutation ResetForgotPassword($token: String!, $newPassword: String!) {
