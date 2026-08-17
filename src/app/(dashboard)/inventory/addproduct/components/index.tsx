@@ -37,7 +37,28 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
     onScanSuccessRef.current = onScanSuccess;
   }, [onScanSuccess]);
 
-  // 1. Camera Logic with Samsung-compatible constraints
+  // Inspect track capabilities for Torch & Zoom
+  const checkCapabilities = (stream: MediaStream) => {
+    const track = stream.getVideoTracks()[0];
+    if (!track) return;
+
+    // Check Capabilities API
+    if (typeof track.getCapabilities === 'function') {
+      const caps = track.getCapabilities() as any;
+      if (caps && (caps.torch || 'torch' in caps)) {
+        setHasTorch(true);
+      }
+      if (caps && caps.zoom) {
+        setHasZoomSupport(true);
+      }
+    } else {
+      // Fallback for Samsung Browser / Chrome WebRTC extensions
+      const settings = track.getSettings() as any;
+      if ('torch' in settings) setHasTorch(true);
+    }
+  };
+
+  // 1. Camera Scanning Logic
   useEffect(() => {
     if (scanMode !== 'camera') return;
 
@@ -46,65 +67,33 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
 
     let isSubscribed = true;
 
+    // Fixed aspect ratio constraints to stop barcode stretching
     const constraints: MediaStreamConstraints = {
       video: {
-        facingMode: { exact: 'environment' }, // Force main rear camera on Samsung
+        facingMode: { ideal: 'environment' },
         width: { ideal: 1280 },
         height: { ideal: 720 },
       },
     };
 
-    const startCamera = async () => {
-      try {
-        await codeReader.decodeFromConstraints(constraints, videoElement, (result) => {
-          if (!isSubscribed) return;
-          if (result) {
-            onScanSuccessRef.current(result.getText());
-            codeReader.reset();
-          }
-        });
-
-        // Delay capabilities inspection to allow Samsung WebRTC drivers to mount capabilities
-        setTimeout(() => {
-          if (!isSubscribed || !videoElement.srcObject) return;
+    codeReader
+      .decodeFromConstraints(constraints, videoElement, (result) => {
+        if (!isSubscribed) return;
+        if (result) {
+          onScanSuccessRef.current(result.getText());
+          codeReader.reset();
+        }
+      })
+      .then(() => {
+        if (videoElement.srcObject) {
           const stream = videoElement.srcObject as MediaStream;
           streamRef.current = stream;
-          const track = stream.getVideoTracks()[0];
-
-          if (track) {
-            const capabilities = (track.getCapabilities ? track.getCapabilities() : {}) as any;
-
-            // Check Flash/Torch
-            if ('torch' in capabilities || capabilities.torch) {
-              setHasTorch(true);
-            }
-
-            // Check Zoom support
-            if (capabilities.zoom) {
-              setHasZoomSupport(true);
-            }
-          }
-        }, 500);
-      } catch (err) {
-        // Fallback to ideal facingMode if exact environment fails on certain browsers
-        try {
-          await codeReader.decodeFromConstraints(
-            { video: { facingMode: 'environment' } },
-            videoElement,
-            (result) => {
-              if (result && isSubscribed) {
-                onScanSuccessRef.current(result.getText());
-                codeReader.reset();
-              }
-            }
-          );
-        } catch (fallbackErr) {
-          console.error('Camera fallback failed:', fallbackErr);
+          checkCapabilities(stream);
         }
-      }
-    };
-
-    startCamera();
+      })
+      .catch((err) => {
+        console.error('Camera init error:', err);
+      });
 
     return () => {
       isSubscribed = false;
@@ -115,7 +104,7 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
     };
   }, [scanMode, codeReader]);
 
-  // Apply Zoom constraint
+  // Apply Zoom level
   const applyZoom = async (newZoom: number) => {
     if (!streamRef.current) return;
     const track = streamRef.current.getVideoTracks()[0];
@@ -125,11 +114,11 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
       });
       setZoomLevel(newZoom);
     } catch (err) {
-      console.error('Zoom constraint error:', err);
+      console.error('Zoom error:', err);
     }
   };
 
-  // Toggle Flashlight/Torch
+  // Toggle Torch/Flashlight
   const toggleTorch = async () => {
     if (!streamRef.current) return;
     const track = streamRef.current.getVideoTracks()[0];
@@ -155,7 +144,7 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
       const result = await codeReader.decodeFromImageUrl(imageUrl);
       onScanSuccessRef.current(result.getText());
     } catch (err) {
-      setFileError('Could not read barcode. Align horizontally and ensure adequate lighting.');
+      setFileError('Could not read barcode. Ensure proper lighting and align horizontally.');
     } finally {
       URL.revokeObjectURL(imageUrl);
       if (event.target) event.target.value = '';
@@ -211,33 +200,33 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
           </button>
         </div>
 
-        {/* Camera Viewport */}
+        {/* Camera Viewport with Correct Aspect Ratio */}
         {scanMode === 'camera' && (
-          <div className="relative w-full overflow-hidden rounded-lg bg-black h-72 flex items-center justify-center">
+          <div className="relative w-full aspect-4/3 overflow-hidden rounded-lg bg-black flex items-center justify-center">
             <video
               ref={videoRef}
               playsInline
               muted
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain bg-black"
             />
 
-            {/* Target Reticle */}
+            {/* Target Reticle Overlay */}
             <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-4">
-              <div className="w-4/5 h-24 border-2 border-emerald-500 rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.5)] relative flex items-center justify-center">
+              <div className="w-11/12 h-28 border-2 border-emerald-500 rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.5)] relative flex items-center justify-center">
                 <div className="w-full h-0.5 bg-red-500/80 animate-pulse"></div>
               </div>
-              <p className="text-white/90 text-xs mt-3 bg-black/60 px-3 py-1 rounded-full">
-                Keep phone 20–25cm away & use 2x zoom for small barcodes
+              <p className="text-white/90 text-xs mt-3 bg-black/70 px-3 py-1.5 rounded-full font-medium">
+                Align barcode horizontally inside frame
               </p>
             </div>
 
             {/* Controls Overlay */}
-            <div className="absolute top-3 right-3 flex flex-col gap-2">
+            <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
               {hasTorch && (
                 <button
                   type="button"
                   onClick={toggleTorch}
-                  className="bg-black/60 text-white px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-black/80 transition shadow-md"
+                  className="bg-black/70 text-white px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-black/90 transition shadow-md"
                 >
                   {torchOn ? '🔦 Flash Off' : '🔦 Flash On'}
                 </button>
@@ -247,7 +236,7 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
                 <button
                   type="button"
                   onClick={() => applyZoom(zoomLevel === 1 ? 2 : 1)}
-                  className="bg-black/60 text-white px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-black/80 transition shadow-md"
+                  className="bg-black/70 text-white px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-black/90 transition shadow-md"
                 >
                   {zoomLevel === 1 ? '🔍 2x Zoom' : '🔍 1x Zoom'}
                 </button>
@@ -256,7 +245,7 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
           </div>
         )}
 
-        {/* File Upload View */}
+        {/* File Upload Mode */}
         {scanMode === 'file' && (
           <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 space-y-4">
             <input
