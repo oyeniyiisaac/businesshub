@@ -11,6 +11,8 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
   const [fileError, setFileError] = useState<string | null>(null);
   const [hasTorch, setHasTorch] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [hasZoomSupport, setHasZoomSupport] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -18,7 +20,6 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
 
   const codeReader = useMemo(() => {
     const hints = new Map();
-    // Prioritize standard product 1D barcodes for faster lookup cycles
     const formats = [
       BarcodeFormat.EAN_13,
       BarcodeFormat.CODE_128,
@@ -36,7 +37,7 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
     onScanSuccessRef.current = onScanSuccess;
   }, [onScanSuccess]);
 
-  // 1. Optimized Camera Logic with High-Res & Autofocus
+  // 1. Camera Logic with Samsung-compatible constraints
   useEffect(() => {
     if (scanMode !== 'camera') return;
 
@@ -45,45 +46,65 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
 
     let isSubscribed = true;
 
-    // Advanced constraints: Request 1080p HD + Continuous Autofocus
     const constraints: MediaStreamConstraints = {
       video: {
-        facingMode: { ideal: 'environment' },
-        width: { ideal: 1920, min: 1280 },
-        height: { ideal: 1080, min: 720 },
-        // Continuous Focus constraint for modern mobile browsers
-        advanced: [
-          { focusMode: 'continuous' } as any,
-          { zoom: 1.0 } as any,
-        ],
+        facingMode: { exact: 'environment' }, // Force main rear camera on Samsung
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
       },
     };
 
-    codeReader
-      .decodeFromConstraints(constraints, videoElement, (result) => {
-        if (!isSubscribed) return;
+    const startCamera = async () => {
+      try {
+        await codeReader.decodeFromConstraints(constraints, videoElement, (result) => {
+          if (!isSubscribed) return;
+          if (result) {
+            onScanSuccessRef.current(result.getText());
+            codeReader.reset();
+          }
+        });
 
-        if (result) {
-          onScanSuccessRef.current(result.getText());
-          codeReader.reset();
-        }
-      })
-      .then(() => {
-        // Access media track to inspect torch capabilities
-        if (videoElement.srcObject) {
+        // Delay capabilities inspection to allow Samsung WebRTC drivers to mount capabilities
+        setTimeout(() => {
+          if (!isSubscribed || !videoElement.srcObject) return;
           const stream = videoElement.srcObject as MediaStream;
           streamRef.current = stream;
           const track = stream.getVideoTracks()[0];
-          const capabilities = track.getCapabilities?.() as any;
 
-          if (capabilities && capabilities.torch) {
-            setHasTorch(true);
+          if (track) {
+            const capabilities = (track.getCapabilities ? track.getCapabilities() : {}) as any;
+
+            // Check Flash/Torch
+            if ('torch' in capabilities || capabilities.torch) {
+              setHasTorch(true);
+            }
+
+            // Check Zoom support
+            if (capabilities.zoom) {
+              setHasZoomSupport(true);
+            }
           }
+        }, 500);
+      } catch (err) {
+        // Fallback to ideal facingMode if exact environment fails on certain browsers
+        try {
+          await codeReader.decodeFromConstraints(
+            { video: { facingMode: 'environment' } },
+            videoElement,
+            (result) => {
+              if (result && isSubscribed) {
+                onScanSuccessRef.current(result.getText());
+                codeReader.reset();
+              }
+            }
+          );
+        } catch (fallbackErr) {
+          console.error('Camera fallback failed:', fallbackErr);
         }
-      })
-      .catch((err: unknown) => {
-        console.error('Camera access error:', err);
-      });
+      }
+    };
+
+    startCamera();
 
     return () => {
       isSubscribed = false;
@@ -94,7 +115,21 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
     };
   }, [scanMode, codeReader]);
 
-  // Toggle Torch / Flashlight
+  // Apply Zoom constraint
+  const applyZoom = async (newZoom: number) => {
+    if (!streamRef.current) return;
+    const track = streamRef.current.getVideoTracks()[0];
+    try {
+      await track.applyConstraints({
+        advanced: [{ zoom: newZoom } as any],
+      });
+      setZoomLevel(newZoom);
+    } catch (err) {
+      console.error('Zoom constraint error:', err);
+    }
+  };
+
+  // Toggle Flashlight/Torch
   const toggleTorch = async () => {
     if (!streamRef.current) return;
     const track = streamRef.current.getVideoTracks()[0];
@@ -120,7 +155,7 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
       const result = await codeReader.decodeFromImageUrl(imageUrl);
       onScanSuccessRef.current(result.getText());
     } catch (err) {
-      setFileError('Could not read barcode. Ensure proper lighting and align horizontally.');
+      setFileError('Could not read barcode. Align horizontally and ensure adequate lighting.');
     } finally {
       URL.revokeObjectURL(imageUrl);
       if (event.target) event.target.value = '';
@@ -138,7 +173,6 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
-        
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Scan Product Barcode</h3>
@@ -177,7 +211,7 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
           </button>
         </div>
 
-        {/* Live Camera Viewport */}
+        {/* Camera Viewport */}
         {scanMode === 'camera' && (
           <div className="relative w-full overflow-hidden rounded-lg bg-black h-72 flex items-center justify-center">
             <video
@@ -187,31 +221,42 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
               className="w-full h-full object-cover"
             />
 
-            {/* Target Reticle Overlay */}
+            {/* Target Reticle */}
             <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-4">
-              <div className="w-4/5 h-28 border-2 border-emerald-500 rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.5)] relative flex items-center justify-center">
-                {/* Center laser animation line */}
+              <div className="w-4/5 h-24 border-2 border-emerald-500 rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.5)] relative flex items-center justify-center">
                 <div className="w-full h-0.5 bg-red-500/80 animate-pulse"></div>
               </div>
-              <p className="text-white/80 text-xs mt-3 bg-black/60 px-3 py-1 rounded-full">
-                Hold camera 10–15cm away from barcode
+              <p className="text-white/90 text-xs mt-3 bg-black/60 px-3 py-1 rounded-full">
+                Keep phone 20–25cm away & use 2x zoom for small barcodes
               </p>
             </div>
 
-            {/* Torch Button if device supports flash */}
-            {hasTorch && (
-              <button
-                type="button"
-                onClick={toggleTorch}
-                className="absolute top-3 right-3 bg-black/60 text-white p-2 rounded-full text-xs font-semibold hover:bg-black/80 transition"
-              >
-                {torchOn ? '🔦 Flash Off' : '🔦 Flash On'}
-              </button>
-            )}
+            {/* Controls Overlay */}
+            <div className="absolute top-3 right-3 flex flex-col gap-2">
+              {hasTorch && (
+                <button
+                  type="button"
+                  onClick={toggleTorch}
+                  className="bg-black/60 text-white px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-black/80 transition shadow-md"
+                >
+                  {torchOn ? '🔦 Flash Off' : '🔦 Flash On'}
+                </button>
+              )}
+
+              {hasZoomSupport && (
+                <button
+                  type="button"
+                  onClick={() => applyZoom(zoomLevel === 1 ? 2 : 1)}
+                  className="bg-black/60 text-white px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-black/80 transition shadow-md"
+                >
+                  {zoomLevel === 1 ? '🔍 2x Zoom' : '🔍 1x Zoom'}
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        {/* File Upload Tab */}
+        {/* File Upload View */}
         {scanMode === 'file' && (
           <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 space-y-4">
             <input
@@ -236,7 +281,6 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
             )}
           </div>
         )}
-
       </div>
     </div>
   );
