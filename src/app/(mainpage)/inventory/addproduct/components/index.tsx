@@ -15,8 +15,11 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
   const [hasZoomSupport, setHasZoomSupport] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const lastScanTimeRef = useRef<number>(0);
 
   const codeReader = useMemo(() => {
     const hints = new Map();
@@ -37,74 +40,103 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
     onScanSuccessRef.current = onScanSuccess;
   }, [onScanSuccess]);
 
-  // Inspect track capabilities for Torch & Zoom
+  // Inspect Torch and Zoom capabilities
   const checkCapabilities = (stream: MediaStream) => {
     const track = stream.getVideoTracks()[0];
     if (!track) return;
 
-    // Check Capabilities API
     if (typeof track.getCapabilities === 'function') {
       const caps = track.getCapabilities() as any;
-      if (caps && (caps.torch || 'torch' in caps)) {
-        setHasTorch(true);
-      }
-      if (caps && caps.zoom) {
-        setHasZoomSupport(true);
-      }
-    } else {
-      // Fallback for Samsung Browser / Chrome WebRTC extensions
-      const settings = track.getSettings() as any;
-      if ('torch' in settings) setHasTorch(true);
+      if (caps && (caps.torch || 'torch' in caps)) setHasTorch(true);
+      if (caps && caps.zoom) setHasZoomSupport(true);
     }
   };
 
-  // 1. Camera Scanning Logic
+  // 1. Optimized Custom Camera Frame Loop
   useEffect(() => {
     if (scanMode !== 'camera') return;
 
-    const videoElement = videoRef.current;
-    if (!videoElement) return;
-
     let isSubscribed = true;
 
-    // Fixed aspect ratio constraints to stop barcode stretching
-    const constraints: MediaStreamConstraints = {
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-      },
+    const startCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        });
+
+        if (!isSubscribed) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+        checkCapabilities(stream);
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => {});
+        }
+
+        // Custom Canvas Scan Loop (Throttled to ~15 FPS)
+        const scanFrame = async () => {
+          if (!isSubscribed) return;
+
+          const now = Date.now();
+          const video = videoRef.current;
+          const canvas = canvasRef.current;
+
+          if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
+            // Process frame every ~66ms (15 FPS) to save battery and lower CPU usage
+            if (now - lastScanTimeRef.current > 66) {
+              lastScanTimeRef.current = now;
+
+              const ctx = canvas.getContext('2d', { willReadFrequently: true });
+              if (ctx) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                try {
+                  // decodeFromCanvasElement handles HTMLCanvasElement across all ZXing versions
+                  const result = await codeReader.decodeFromCanvasElement(canvas);
+                  if (result && isSubscribed) {
+                    onScanSuccessRef.current(result.getText());
+                    return; // Exit scanning loop on successful match
+                  }
+                } catch (err: any) {
+                  // Silently swallow ZXing's internal NotFoundException frame drops
+                }
+              }
+            }
+          }
+
+          animationFrameRef.current = requestAnimationFrame(scanFrame);
+        };
+
+        animationFrameRef.current = requestAnimationFrame(scanFrame);
+      } catch (err) {
+        console.error('Camera stream access failed:', err);
+      }
     };
 
-    codeReader
-      .decodeFromConstraints(constraints, videoElement, (result) => {
-        if (!isSubscribed) return;
-        if (result) {
-          onScanSuccessRef.current(result.getText());
-          codeReader.reset();
-        }
-      })
-      .then(() => {
-        if (videoElement.srcObject) {
-          const stream = videoElement.srcObject as MediaStream;
-          streamRef.current = stream;
-          checkCapabilities(stream);
-        }
-      })
-      .catch((err) => {
-        console.error('Camera init error:', err);
-      });
+    startCamera();
 
     return () => {
       isSubscribed = false;
-      codeReader.reset();
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
   }, [scanMode, codeReader]);
 
-  // Apply Zoom level
+  // Apply Zoom
   const applyZoom = async (newZoom: number) => {
     if (!streamRef.current) return;
     const track = streamRef.current.getVideoTracks()[0];
@@ -114,7 +146,7 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
       });
       setZoomLevel(newZoom);
     } catch (err) {
-      console.error('Zoom error:', err);
+      console.error('Zoom constraint error:', err);
     }
   };
 
@@ -128,7 +160,7 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
       });
       setTorchOn(!torchOn);
     } catch (err) {
-      console.error('Torch toggle error:', err);
+      console.error('Torch error:', err);
     }
   };
 
@@ -152,7 +184,9 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
   };
 
   const handleClose = () => {
-    codeReader.reset();
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
     }
@@ -200,7 +234,7 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
           </button>
         </div>
 
-        {/* Camera Viewport with Correct Aspect Ratio */}
+        {/* Camera Viewport */}
         {scanMode === 'camera' && (
           <div className="relative w-full aspect-4/3 overflow-hidden rounded-lg bg-black flex items-center justify-center">
             <video
@@ -209,14 +243,16 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
               muted
               className="w-full h-full object-contain bg-black"
             />
+            {/* Offscreen canvas used for frame analysis */}
+            <canvas ref={canvasRef} className="hidden" />
 
-            {/* Target Reticle Overlay */}
+            {/* Target Reticle */}
             <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-4">
               <div className="w-11/12 h-28 border-2 border-emerald-500 rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.5)] relative flex items-center justify-center">
                 <div className="w-full h-0.5 bg-red-500/80 animate-pulse"></div>
               </div>
               <p className="text-white/90 text-xs mt-3 bg-black/70 px-3 py-1.5 rounded-full font-medium">
-                Align barcode horizontally inside frame
+                Hold phone 20–25cm away & align barcode horizontally
               </p>
             </div>
 

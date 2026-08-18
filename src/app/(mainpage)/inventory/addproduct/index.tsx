@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 import {
     Info,
@@ -21,6 +21,13 @@ export default function AddProductPage() {
     const [brand, setBrand] = useState('');
     const [description, setDescription] = useState('');
 
+    // Media Upload State
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [imageUrl, setImageUrl] = useState<string>('');
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const mediaInputRef = useRef<HTMLInputElement>(null);
+
     // Inventory & Tracking State
     const [sku, setSku] = useState('');
     const [unitOfMeasure, setUnitOfMeasure] = useState('Pcs (Pieces)');
@@ -39,7 +46,52 @@ export default function AddProductPage() {
 
     const [loading, setLoading] = useState(false);
 
+    // Media Handlers
+    const handleMediaClick = () => {
+        mediaInputRef.current?.click();
+    };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSelectedFile(file);
+            setPreviewUrl(URL.createObjectURL(file));
+        }
+    };
+
+    // Upload Image to Cloudinary Route Handler
+    const uploadToCloudinary = async (file: File): Promise<string> => {
+        // 1. Prevent oversized files (> 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            throw new Error('Image size exceeds 5MB limit');
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // 2. Add an AbortController signal for fetch timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second client timeout
+
+        try {
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+                signal: controller.signal,
+            });
+
+            clearTimeout(timeoutId);
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data.error || 'Failed to upload image');
+            return data.url;
+        } catch (error: any) {
+            if (error.name === 'AbortError') {
+                throw new Error('Upload timed out. Please try a smaller image.');
+            }
+            throw error;
+        }
+    };
     // 2. SAVE PRODUCT FUNCTION
     const saveProduct = async () => {
         if (!name || !category || !sellingPrice) {
@@ -50,6 +102,16 @@ export default function AddProductPage() {
         setLoading(true);
 
         try {
+            let uploadedImageUrl = imageUrl;
+
+            // Upload image to Cloudinary first if a new file is chosen
+            if (selectedFile) {
+                setUploadingImage(true);
+                uploadedImageUrl = await uploadToCloudinary(selectedFile);
+                setImageUrl(uploadedImageUrl);
+                setUploadingImage(false);
+            }
+
             const response = await fetch('/api/graphql', {
                 method: 'POST',
                 headers: {
@@ -59,9 +121,10 @@ export default function AddProductPage() {
                     query: `
                         mutation AddProduct(
                             $name: String!
-                            $category: String!           # Changed ID! -> String! to match typeDefs
-                            $brand: String               # Changed ID -> String to match typeDefs
+                            $category: String!
+                            $brand: String
                             $description: String
+                            $imageUrl: String             # Passed to DB
                             $inventoryTracking: InventoryTrackingInput!
                             $pricing: PricingAndTaxInput!
                             $stockLevel: StockLevelInput!
@@ -71,6 +134,7 @@ export default function AddProductPage() {
                                 category: $category
                                 brand: $brand
                                 description: $description
+                                imageUrl: $imageUrl
                                 inventoryTracking: $inventoryTracking
                                 pricing: $pricing
                                 stockLevel: $stockLevel
@@ -78,30 +142,32 @@ export default function AddProductPage() {
                                 id
                                 name
                                 category
+                                imageUrl
                             }
                         }
                     `,
                     variables: {
                         name: name,
-                        category: category || "", // Must be a non-empty string matching select option
+                        category: category || '',
                         brand: brand || null,
-                        description: description || "",
+                        description: description || '',
+                        imageUrl: uploadedImageUrl || null,
                         inventoryTracking: {
-                            sku: sku || "",
-                            unitOfMeasure: unitOfMeasure || "Pcs (Pieces)",
-                            barcode: barcode || "",
+                            sku: sku || '',
+                            unitOfMeasure: unitOfMeasure || 'Pcs (Pieces)',
+                            barcode: barcode || '',
                         },
                         pricing: {
                             costPrice: Number(costPrice) || 0.0,
                             sellingPrice: Number(sellingPrice) || 0.0,
-                            taxRule: taxRule || "VAT 7.5%",
+                            taxRule: taxRule || 'VAT 7.5%',
                         },
                         stockLevel: {
                             initialQuantity: Number(initialQuantity) || 0,
                             lowStockThreshold: Number(lowStockThreshold) || 1,
                             enableLowStockAlerts: Boolean(enableLowStockAlerts),
                         },
-                    }
+                    },
                 }),
             });
 
@@ -117,7 +183,9 @@ export default function AddProductPage() {
             alert('Product added successfully!');
         } catch (error) {
             console.error('Error adding product:', error);
+            alert('An error occurred while saving product.');
         } finally {
+            setUploadingImage(false);
             setLoading(false);
         }
     };
@@ -128,10 +196,7 @@ export default function AddProductPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <nav className="text-body-xs text-on-surface-variant flex items-center gap-1.5 mb-1">
-                        <Link
-                            href="/inventory"
-                            className="hover:text-primary transition-colors"
-                        >
+                        <Link href="/inventory" className="hover:text-primary transition-colors">
                             Inventory
                         </Link>
                         <span>&gt;</span>
@@ -152,11 +217,17 @@ export default function AddProductPage() {
                     </Link>
                     <button
                         onClick={saveProduct}
-                        disabled={loading}
+                        disabled={loading || uploadingImage}
                         className="bg-primary hover:bg-primary-container text-on-primary font-medium px-4 py-2.5 rounded-DEFAULT flex items-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                     >
                         <Save className="w-5 h-5" />
-                        <span>{loading ? 'Saving...' : 'Save Product'}</span>
+                        <span>
+                            {uploadingImage
+                                ? 'Uploading Image...'
+                                : loading
+                                    ? 'Saving...'
+                                    : 'Save Product'}
+                        </span>
                     </button>
                 </div>
             </div>
@@ -166,9 +237,7 @@ export default function AddProductPage() {
                 <div className="lg:col-span-2 bg-surface-lowest border border-outline-variant rounded-lg p-6 space-y-5">
                     <div className="flex items-center gap-2 pb-3 border-b border-outline-variant/60">
                         <Info className="w-5 h-5 text-primary" />
-                        <h2 className="text-body-md font-bold text-on-surface">
-                            Basic Information
-                        </h2>
+                        <h2 className="text-body-md font-bold text-on-surface">Basic Information</h2>
                     </div>
 
                     <div className="space-y-4">
@@ -245,17 +314,36 @@ export default function AddProductPage() {
                         <h2 className="text-body-md font-bold text-on-surface">Media</h2>
                     </div>
 
-                    <div className="flex-1 border-2 border-dashed border-outline-variant hover:border-primary/60 bg-surface-container-lowest hover:bg-surface-container-low rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all">
-                        <div className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center mb-3">
-                            <CloudUpload className="w-6 h-6 text-on-surface-variant" />
-                        </div>
-                        <p className="text-body-sm font-semibold text-on-surface mb-1">
-                            Click to upload or drag & drop
-                        </p>
-                        <p className="text-body-xs text-on-surface-variant/80">
-                            SVG, PNG, JPG or GIF (max. 5MB)
-                        </p>
-                        <input type="file" accept="image/*" className="hidden" />
+                    <div
+                        onClick={handleMediaClick}
+                        className="flex-1 border-2 border-dashed border-outline-variant hover:border-primary/60 bg-surface-container-lowest hover:bg-surface-container-low rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all relative overflow-hidden min-h-[180px]"
+                    >
+                        {previewUrl ? (
+                            <img
+                                src={previewUrl}
+                                alt="Selected preview"
+                                className="absolute inset-0 w-full h-full object-contain p-2 bg-black/5"
+                            />
+                        ) : (
+                            <>
+                                <div className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center mb-3">
+                                    <CloudUpload className="w-6 h-6 text-on-surface-variant" />
+                                </div>
+                                <p className="text-body-sm font-semibold text-on-surface mb-1">
+                                    Click to upload or drag & drop
+                                </p>
+                                <p className="text-body-xs text-on-surface-variant/80">
+                                    SVG, PNG, JPG or GIF (max. 5MB)
+                                </p>
+                            </>
+                        )}
+                        <input
+                            ref={mediaInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleFileChange}
+                        />
                     </div>
                 </div>
             </div>
@@ -317,18 +405,19 @@ export default function AddProductPage() {
                                 />
                                 <button
                                     type="button"
-                                    onClick={() => { setIsScanning(true); }}
+                                    onClick={() => {
+                                        setIsScanning(true);
+                                    }}
                                     className="p-2.5 bg-surface-container border border-outline-variant rounded-DEFAULT text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0"
                                     title="Scan Barcode"
                                 >
                                     <QrCodeScanner className="w-5 h-5" />
                                 </button>
-                                {/* Conditionally render the component in JSX */}
                                 {isScanning && (
                                     <BarcodeScanner
                                         onScanSuccess={(scannedText) => {
-                                            setBarcode(scannedText); // Populate input field
-                                            setIsScanning(false);    // Close scanner modal
+                                            setBarcode(scannedText);
+                                            setIsScanning(false);
                                         }}
                                         onClose={() => setIsScanning(false)}
                                     />
@@ -342,9 +431,7 @@ export default function AddProductPage() {
                 <div className="bg-surface-lowest border border-outline-variant rounded-lg p-6 space-y-5">
                     <div className="flex items-center gap-2 pb-3 border-b border-outline-variant/60">
                         <Payments className="w-5 h-5 text-primary" />
-                        <h2 className="text-body-md font-bold text-on-surface">
-                            Pricing & Tax
-                        </h2>
+                        <h2 className="text-body-md font-bold text-on-surface">Pricing & Tax</h2>
                     </div>
 
                     <div className="space-y-4">
@@ -361,7 +448,11 @@ export default function AddProductPage() {
                                         type="number"
                                         step="0.01"
                                         value={costPrice}
-                                        onChange={(e) => setCostPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                                        onChange={(e) =>
+                                            setCostPrice(
+                                                e.target.value === '' ? '' : Number(e.target.value)
+                                            )
+                                        }
                                         placeholder="0.00"
                                         className="w-full bg-surface-container-low border border-outline-variant rounded-DEFAULT pl-8 pr-3.5 py-2 text-body-sm text-on-surface placeholder:text-on-surface-variant/70 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                     />
@@ -380,7 +471,11 @@ export default function AddProductPage() {
                                         type="number"
                                         step="0.01"
                                         value={sellingPrice}
-                                        onChange={(e) => setSellingPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                                        onChange={(e) =>
+                                            setSellingPrice(
+                                                e.target.value === '' ? '' : Number(e.target.value)
+                                            )
+                                        }
                                         placeholder="0.00"
                                         className="w-full bg-surface-container-low border border-outline-variant rounded-DEFAULT pl-8 pr-3.5 py-2 text-body-sm text-on-surface placeholder:text-on-surface-variant/70 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                     />
@@ -410,9 +505,7 @@ export default function AddProductPage() {
             <div className="bg-surface-lowest border border-outline-variant rounded-lg p-6 space-y-5">
                 <div className="flex items-center gap-2 pb-3 border-b border-outline-variant/60">
                     <Warehouse className="w-5 h-5 text-primary" />
-                    <h2 className="text-body-md font-bold text-on-surface">
-                        Initial Stock Level
-                    </h2>
+                    <h2 className="text-body-md font-bold text-on-surface">Initial Stock Level</h2>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
@@ -446,10 +539,12 @@ export default function AddProductPage() {
                         <button
                             type="button"
                             onClick={() => setEnableLowStockAlerts(!enableLowStockAlerts)}
-                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${enableLowStockAlerts ? 'bg-primary' : 'bg-outline-variant'}`}
+                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${enableLowStockAlerts ? 'bg-primary' : 'bg-outline-variant'
+                                }`}
                         >
                             <span
-                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${enableLowStockAlerts ? 'translate-x-5' : 'translate-x-0'}`}
+                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${enableLowStockAlerts ? 'translate-x-5' : 'translate-x-0'
+                                    }`}
                             />
                         </button>
                         <span className="text-body-sm font-semibold text-on-surface select-none">

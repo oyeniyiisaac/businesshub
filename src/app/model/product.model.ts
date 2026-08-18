@@ -26,6 +26,7 @@ export interface IProduct extends Document {
   category: Schema.Types.ObjectId;
   brand?: Schema.Types.ObjectId;
   description?: string;
+  imageUrl?: string;
   
   // Nested Objects (Object within Object)
   inventoryTracking: IInventoryTracking;
@@ -70,6 +71,7 @@ const productSchema = new Schema<IProduct>(
     category: { type: String, required: true, trim: true }, 
     brand: { type: String, trim: true }, 
     description: { type: String, trim: true },
+    imageUrl: { type: String, trim: true, default: '' },
 
     // Embedding the nested objects
     inventoryTracking: { type: inventoryTrackingSchema, required: true },

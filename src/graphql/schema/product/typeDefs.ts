@@ -7,6 +7,7 @@ export const typeDefs = gql`
         category: String!
         brand: String
         description: String
+        imageUrl: String
         inventoryTracking: InventoryTracking!
         pricing: PricingAndTax!
         stockLevel: StockLevel!
@@ -59,6 +60,7 @@ export const typeDefs = gql`
         category: String!
         brand: String
         description: String
+        imageUrl: String
         inventoryTracking: InventoryTrackingInput!
         pricing: PricingAndTaxInput!
         stockLevel: StockLevelInput!
@@ -69,6 +71,7 @@ export const typeDefs = gql`
         category: String!
         brand: String
         description: String
+        imageUrl: String
         inventoryTracking: InventoryTrackingInput!
         pricing: PricingAndTaxInput!
         stockLevel: StockLevelInput!

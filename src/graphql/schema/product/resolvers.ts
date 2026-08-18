@@ -6,6 +6,7 @@ interface ProductInput {
     category: string;
     brand?: string;
     description?: string;
+    imageUrl?: string;
     inventoryTracking: {
         sku?: string;
         unitOfMeasure?: string;
@@ -42,6 +43,7 @@ export const resolvers = {
                 category,
                 brand,
                 description,
+                imageUrl,
                 inventoryTracking,
                 pricing,
                 stockLevel,
@@ -66,6 +68,7 @@ export const resolvers = {
                 category,
                 brand: brand || undefined,
                 description: description || "",
+                imageUrl: imageUrl || "",
                 inventoryTracking: {
                     sku: inventoryTracking?.sku || "",
                     unitOfMeasure: inventoryTracking?.unitOfMeasure || "Pcs (Pieces)",
@@ -82,12 +85,12 @@ export const resolvers = {
                     enableLowStockAlerts: Boolean(stockLevel?.enableLowStockAlerts ?? true),
                 },
             });
-
+            console.log("New product created:", newProduct);
             return newProduct;
         },
         updateProduct: async (
             _: any,
-            { id, name, category, brand, description, inventoryTracking, pricing, stockLevel }: any
+            { id, name, category, brand, description, imageUrl, inventoryTracking, pricing, stockLevel }: any
         ) => {
             await connectDB();
 
@@ -98,6 +101,7 @@ export const resolvers = {
                     ...(category ? { category } : {}),
                     ...(brand !== undefined ? { brand } : {}),
                     ...(description !== undefined ? { description } : {}),
+                    ...(imageUrl !== undefined ? { imageUrl } : {}),
                     ...(inventoryTracking ? { inventoryTracking } : {}),
                     ...(pricing ? { pricing } : {}),
                     ...(stockLevel ? { stockLevel } : {}),
