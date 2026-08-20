@@ -1,118 +1,107 @@
-import { Expense } from "@/src/app/model/expense";
+import { Expense, PaymentMethod } from "@/src/app/model/expense";
 import { connectDB } from "@/src/lib/connect";
 
 interface ExpenseInput {
     amount: number;
     description: string;
-    dateOfExpense: string;
+    dateOfExpense?: string;
     category: string;
-    paymentMethod: string;
+    paymentMethod?: PaymentMethod;
     referenceNumber?: string;
     receiptUrl?: string;
+    status?: string;
     isRecurring?: boolean;
-    vendor?: string;
 }
+
+const mapExpense = (e: any) => ({
+    id: e._id.toString(),
+    category: e.category,
+    amount: typeof e.amount === "number" ? e.amount : 0,
+    dateOfExpense: e.dateOfExpense ? new Date(e.dateOfExpense).toISOString() : new Date().toISOString(),
+    paymentMethod: e.paymentMethod || "CASH",
+    referenceNumber: e.referenceNumber,
+    description: e.description,
+    receiptUrl: e.receiptUrl,
+    status: e.status || "Approved",
+    isRecurring: Boolean(e.isRecurring),
+    createdAt: e.createdAt ? e.createdAt.toISOString() : null,
+    updatedAt: e.updatedAt ? e.updatedAt.toISOString() : null,
+});
 
 export const resolvers = {
     Query: {
         expenses: async () => {
             await connectDB();
-            return Expense.find();
+            const list = await Expense.find().sort({ dateOfExpense: -1, createdAt: -1 });
+            return list.map(mapExpense);
         },
         expense: async (_: any, { id }: { id: string }) => {
             await connectDB();
-            return Expense.findById(id);
+            const e = await Expense.findById(id);
+            return e ? mapExpense(e) : null;
         },
     },
     Mutation: {
         createExpense: async (
             _: any,
             { input }: { input: ExpenseInput }
-               
         ) => {
             await connectDB();
             const {
-                 amount,
+                amount,
                 description,
                 dateOfExpense,
                 category,
-                paymentMethod,
+                paymentMethod = PaymentMethod.CASH,
                 referenceNumber,
                 receiptUrl,
-                isRecurring,
-                vendor,
+                status = "Approved",
+                isRecurring = false,
             } = input;
-            if (!amount || !description || !dateOfExpense || !category || !paymentMethod) {
-                throw new Error("Missing required fields: amount, description, dateOfExpense, category, and payment method.");
-            }
 
-            if (Number(amount) < 0) {
-                throw new Error("Amount must be a positive number.");
+            if (!amount || !description || !category) {
+                throw new Error("Missing required fields: amount, description, category.");
             }
 
             const newExpense = new Expense({
-                amount,
-                description,
-                dateOfExpense,
-                category,
+                amount: Number(amount),
+                description: description.trim(),
+                dateOfExpense: dateOfExpense ? new Date(dateOfExpense) : new Date(),
+                category: category.trim(),
                 paymentMethod,
                 referenceNumber,
                 receiptUrl,
+                status,
                 isRecurring,
-                vendor,
             });
 
-            return await newExpense.save();
+            const saved = await newExpense.save();
+            return mapExpense(saved);
         },
         updateExpense: async (
             _: any,
-            {
-                id,
-                amount,
-                description,
-                dateOfExpense,
-                category,
-                paymentMethod,
-                referenceNumber,
-                receiptUrl,
-                isRecurring,
-                vendor,
-            }: { id: string } & Partial<ExpenseInput>
+            { id, input }: { id: string; input: Partial<ExpenseInput> }
         ) => {
             await connectDB();
+            const updateData: any = { ...input };
+            if (input.dateOfExpense) {
+                updateData.dateOfExpense = new Date(input.dateOfExpense);
+            }
+            if (input.amount !== undefined) {
+                updateData.amount = Number(input.amount);
+            }
 
-            const updatedExpense = await Expense.findByIdAndUpdate(
-                id,
-                {
-                    amount,
-                    description,
-                    dateOfExpense,
-                    category,
-                    paymentMethod,
-                    referenceNumber,
-                    receiptUrl,
-                    isRecurring,
-                    vendor,
-                },
-                { new: true }
-            );
-
+            const updatedExpense = await Expense.findByIdAndUpdate(id, updateData, { new: true });
             if (!updatedExpense) {
                 throw new Error("Expense not found.");
             }
 
-            return updatedExpense;
+            return mapExpense(updatedExpense);
         },
         deleteExpense: async (_: any, { id }: { id: string }) => {
             await connectDB();
-
-            const deletedExpense = await Expense.findByIdAndDelete(id);
-
-            if (!deletedExpense) {
-                throw new Error("Expense not found.");
-            }
-
-            return deletedExpense;
+            const deleted = await Expense.findByIdAndDelete(id);
+            return !!deleted;
         },
     },
 };

@@ -17,12 +17,16 @@ export const typeDefs = gql`
     phoneNumber: String
     emailAddress: String
     physicalAddress: String
-    defaultPaymentTerms: PaymentTerms!
-    initialBalanceOwed: Float!
-    enforceCreditLimit: Boolean!
-    creditLimitAmount: Float!
-    createdAt: String!
-    updatedAt: String!
+    defaultPaymentTerms: PaymentTerms
+    initialBalanceOwed: Float
+    outstandingBalance: Float
+    activeOrders: Int
+    pendingDeliveries: Int
+    status: String
+    enforceCreditLimit: Boolean
+    creditLimitAmount: Float
+    createdAt: String
+    updatedAt: String
   }
 
   input CreateVendorInput {
@@ -35,6 +39,10 @@ export const typeDefs = gql`
     physicalAddress: String
     defaultPaymentTerms: PaymentTerms
     initialBalanceOwed: Float
+    outstandingBalance: Float
+    activeOrders: Int
+    pendingDeliveries: Int
+    status: String
     enforceCreditLimit: Boolean
     creditLimitAmount: Float
   }
@@ -49,18 +57,27 @@ export const typeDefs = gql`
     physicalAddress: String
     defaultPaymentTerms: PaymentTerms
     initialBalanceOwed: Float
+    outstandingBalance: Float
+    activeOrders: Int
+    pendingDeliveries: Int
+    status: String
     enforceCreditLimit: Boolean
     creditLimitAmount: Float
   }
 
-  type Query {
+  extend type Query {
     vendors: [Vendor!]!
     vendor(id: ID!): Vendor
+    suppliers: [Vendor!]!
+    supplier(id: ID!): Vendor
   }
 
-  type Mutation {
+  extend type Mutation {
     createVendor(input: CreateVendorInput!): Vendor!
     updateVendor(id: ID!, input: UpdateVendorInput!): Vendor!
     deleteVendor(id: ID!): Boolean!
+    createSupplier(input: CreateVendorInput!): Vendor!
+    updateSupplier(id: ID!, input: UpdateVendorInput!): Vendor!
+    deleteSupplier(id: ID!): Boolean!
   }
 `;

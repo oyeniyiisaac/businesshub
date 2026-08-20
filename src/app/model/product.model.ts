@@ -25,6 +25,7 @@ export interface IProduct extends Document {
   name: string;
   category: Schema.Types.ObjectId;
   brand?: Schema.Types.ObjectId;
+  supplier?: string;
   description?: string;
   imageUrl?: string;
   
@@ -70,6 +71,7 @@ const productSchema = new Schema<IProduct>(
     name: { type: String, required: true, trim: true },
     category: { type: String, required: true, trim: true }, 
     brand: { type: String, trim: true }, 
+    supplier: { type: String, trim: true, default: 'Main Warehouse' },
     description: { type: String, trim: true },
     imageUrl: { type: String, trim: true, default: '' },
 

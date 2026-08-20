@@ -6,6 +6,7 @@ export const typeDefs = gql`
         name: String!
         category: String!
         brand: String
+        supplier: String
         description: String
         imageUrl: String
         inventoryTracking: InventoryTracking!
@@ -59,6 +60,7 @@ export const typeDefs = gql`
         name: String!
         category: String!
         brand: String
+        supplier: String
         description: String
         imageUrl: String
         inventoryTracking: InventoryTrackingInput!
@@ -70,6 +72,7 @@ export const typeDefs = gql`
         name: String!
         category: String!
         brand: String
+        supplier: String
         description: String
         imageUrl: String
         inventoryTracking: InventoryTrackingInput!

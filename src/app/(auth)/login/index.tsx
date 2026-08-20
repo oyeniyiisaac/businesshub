@@ -27,9 +27,9 @@ const Login = () => {
   const loginSchema = Yup.object().shape({
     workEmail: Yup.string()
       .email("Invalid email address")
-      .required("Work email is required"),
+      .required("Email is required"),
     password: Yup.string()
-      .min(8, "Password must be at least 8 characters")
+      .min(6, "Password must be at least 6 characters")
       .required("Password is required"),
     rememberMe: Yup.boolean(),
   });
@@ -51,26 +51,22 @@ const Login = () => {
           },
           body: JSON.stringify({
             query: `
-              mutation SignInUser(
-              $workEmail: String!
-              $password: String!
-              ) {
-                signInUser(
-                workEmail: $workEmail
-                password: $password
-                ) {
+              mutation Login($email: String!, $password: String!) {
+                login(email: $email, password: $password) {
                   token
                   user {
                     id
-                    businessName
+                    fullName
+                    email
                     workEmail
-                    phoneNumber
+                    role
+                    mustChangePassword
                   }
                 }
               }
             `,
             variables: {
-              workEmail: values.workEmail,
+              email: values.workEmail,
               password: values.password,
             },
           }),
@@ -86,16 +82,30 @@ const Login = () => {
           throw new Error(result.errors[0].message || "Unable to sign in");
         }
 
-        const authPayload = result?.data?.signInUser;
+        const authPayload = result?.data?.login;
         if (!authPayload?.token) {
           throw new Error("Invalid authentication response");
         }
 
-        localStorage.setItem("authToken", authPayload.token);
+        const authenticatedUser = authPayload.user;
 
-        router.push("/dashboard");
+        // Store Session Token & Role
+        localStorage.setItem("authToken", authPayload.token);
+        if (authenticatedUser?.role) {
+          localStorage.setItem("userRole", authenticatedUser.role);
+        }
+        localStorage.setItem("user", JSON.stringify(authenticatedUser));
+
+        // --- Role-Based Redirection Routing ---
+        if (authenticatedUser?.role === "CASHIER") {
+          router.push("/pos");
+        } else {
+          router.push("/dashboard");
+        }
       } catch (error) {
-        setSubmitError(error instanceof Error ? error.message : "Unable to sign in");
+        setSubmitError(
+          error instanceof Error ? error.message : "Unable to sign in"
+        );
       } finally {
         setSubmitting(false);
       }
@@ -176,22 +186,22 @@ const Login = () => {
                 </h1>
 
                 <p className="mt-1.5 text-xs text-on-surface-variant">
-                  Welcome back! Please enter your details below.
+                  Welcome back! Enter your email and password to continue.
                 </p>
               </div>
 
               {/* Form */}
               <form className="space-y-4" onSubmit={formik.handleSubmit}>
-                {/* Work Email */}
+                {/* Work Email / Staff Email */}
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-on-surface">
-                    Work Email <span className="text-error">*</span>
+                    Email Address <span className="text-error">*</span>
                   </label>
 
                   <input
                     type="email"
                     name="workEmail"
-                    placeholder="jane@adeandsons.com"
+                    placeholder="name@businesshub.ng"
                     className="h-10 w-full rounded-md border border-outline bg-surface-container-low px-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary"
                     onChange={formik.handleChange}
                     onBlur={formik.handleBlur}

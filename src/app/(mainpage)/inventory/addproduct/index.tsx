@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
     Info,
     Image,
@@ -11,15 +12,56 @@ import {
     Save,
     QrCodeScanner,
     Warehouse,
+    Add,
+    Close,
 } from 'google-material-icons/outlined';
 import { BarcodeScanner } from './components';
+import { usePermissions } from '@/src/context/PermissionsContext';
+
+const DEFAULT_CATEGORIES = [
+    'Electronics',
+    'Mobile Phones',
+    'Furniture',
+    'Office Supplies',
+    'Groceries',
+    'Health & Beauty',
+    'Fashion & Apparel',
+    'Home & Kitchen',
+    'Accessories',
+    'General',
+];
+
+const DEFAULT_BRANDS = [
+    'Samsung',
+    'Apple',
+    'HP',
+    'Dell',
+    'Sony',
+    'LG',
+    'Lenovo',
+    'Nike',
+    'Generic / No Brand',
+];
 
 export default function AddProductPage() {
+    const router = useRouter();
+    const { canCreate } = usePermissions();
+
     // 1. FORM STATES
     const [name, setName] = useState('');
     const [category, setCategory] = useState('');
     const [brand, setBrand] = useState('');
     const [description, setDescription] = useState('');
+
+    // Dynamic Categories & Brands State
+    const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
+    const [brands, setBrands] = useState<string[]>(DEFAULT_BRANDS);
+
+    // Inline Add Category / Brand State
+    const [isAddingCategory, setIsAddingCategory] = useState(false);
+    const [newCategoryInput, setNewCategoryInput] = useState('');
+    const [isAddingBrand, setIsAddingBrand] = useState(false);
+    const [newBrandInput, setNewBrandInput] = useState('');
 
     // Media Upload State
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -45,6 +87,113 @@ export default function AddProductPage() {
     const [enableLowStockAlerts, setEnableLowStockAlerts] = useState<boolean>(true);
 
     const [loading, setLoading] = useState(false);
+    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+    // Load existing categories and brands from DB & LocalStorage
+    const fetchExistingMetadata = useCallback(async () => {
+        try {
+            // 1. Load saved custom categories/brands from localStorage
+            let customCats: string[] = [];
+            let customBrnds: string[] = [];
+            if (typeof window !== 'undefined') {
+                const savedCats = localStorage.getItem('custom_categories');
+                if (savedCats) customCats = JSON.parse(savedCats);
+
+                const savedBrnds = localStorage.getItem('custom_brands');
+                if (savedBrnds) customBrnds = JSON.parse(savedBrnds);
+            }
+
+            // 2. Fetch distinct categories and brands from DB products
+            const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+            const res = await fetch('/api/graphql', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                    query: `
+                        query GetProductMetadata {
+                            products {
+                                category
+                                brand
+                            }
+                        }
+                    `,
+                }),
+            });
+
+            const result = await res.json();
+            const dbCategories: string[] = [];
+            const dbBrands: string[] = [];
+
+            if (result.data?.products) {
+                result.data.products.forEach((p: any) => {
+                    if (p.category && !dbCategories.includes(p.category)) {
+                        dbCategories.push(p.category);
+                    }
+                    if (p.brand && !dbBrands.includes(p.brand)) {
+                        dbBrands.push(p.brand);
+                    }
+                });
+            }
+
+            // Combine unique sets
+            const mergedCategories = Array.from(
+                new Set([...DEFAULT_CATEGORIES, ...customCats, ...dbCategories].filter(Boolean))
+            );
+            const mergedBrands = Array.from(
+                new Set([...DEFAULT_BRANDS, ...customBrnds, ...dbBrands].filter(Boolean))
+            );
+
+            setCategories(mergedCategories);
+            setBrands(mergedBrands);
+        } catch {
+            // Keep default lists
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchExistingMetadata();
+    }, [fetchExistingMetadata]);
+
+    // Handle adding new custom category
+    const handleCreateCategory = () => {
+        const trimmed = newCategoryInput.trim();
+        if (!trimmed) return;
+
+        setCategories((prev) => {
+            const next = Array.from(new Set([trimmed, ...prev]));
+            if (typeof window !== 'undefined') {
+                const custom = next.filter((c) => !DEFAULT_CATEGORIES.includes(c));
+                localStorage.setItem('custom_categories', JSON.stringify(custom));
+            }
+            return next;
+        });
+
+        setCategory(trimmed);
+        setNewCategoryInput('');
+        setIsAddingCategory(false);
+    };
+
+    // Handle adding new custom brand
+    const handleCreateBrand = () => {
+        const trimmed = newBrandInput.trim();
+        if (!trimmed) return;
+
+        setBrands((prev) => {
+            const next = Array.from(new Set([trimmed, ...prev]));
+            if (typeof window !== 'undefined') {
+                const custom = next.filter((b) => !DEFAULT_BRANDS.includes(b));
+                localStorage.setItem('custom_brands', JSON.stringify(custom));
+            }
+            return next;
+        });
+
+        setBrand(trimmed);
+        setNewBrandInput('');
+        setIsAddingBrand(false);
+    };
 
     // Media Handlers
     const handleMediaClick = () => {
@@ -61,7 +210,6 @@ export default function AddProductPage() {
 
     // Upload Image to Cloudinary Route Handler
     const uploadToCloudinary = async (file: File): Promise<string> => {
-        // 1. Prevent oversized files (> 5MB)
         if (file.size > 5 * 1024 * 1024) {
             throw new Error('Image size exceeds 5MB limit');
         }
@@ -69,9 +217,8 @@ export default function AddProductPage() {
         const formData = new FormData();
         formData.append('file', file);
 
-        // 2. Add an AbortController signal for fetch timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second client timeout
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
         try {
             const res = await fetch('/api/upload', {
@@ -92,19 +239,25 @@ export default function AddProductPage() {
             throw error;
         }
     };
+
     // 2. SAVE PRODUCT FUNCTION
     const saveProduct = async () => {
-        if (!name || !category || !sellingPrice) {
-            alert('Please fill in all required fields (*)');
+        if (!canCreate('inventory')) {
+            setFeedback({ type: 'error', message: 'You do not have permission to add products to inventory.' });
+            return;
+        }
+
+        if (!name.trim() || !category.trim() || !sellingPrice) {
+            setFeedback({ type: 'error', message: 'Please fill in all required fields (Product Name, Category, Selling Price).' });
             return;
         }
 
         setLoading(true);
+        setFeedback(null);
 
         try {
             let uploadedImageUrl = imageUrl;
 
-            // Upload image to Cloudinary first if a new file is chosen
             if (selectedFile) {
                 setUploadingImage(true);
                 uploadedImageUrl = await uploadToCloudinary(selectedFile);
@@ -112,10 +265,12 @@ export default function AddProductPage() {
                 setUploadingImage(false);
             }
 
+            const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
             const response = await fetch('/api/graphql', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
                 body: JSON.stringify({
                     query: `
@@ -124,7 +279,7 @@ export default function AddProductPage() {
                             $category: String!
                             $brand: String
                             $description: String
-                            $imageUrl: String             # Passed to DB
+                            $imageUrl: String
                             $inventoryTracking: InventoryTrackingInput!
                             $pricing: PricingAndTaxInput!
                             $stockLevel: StockLevelInput!
@@ -142,20 +297,21 @@ export default function AddProductPage() {
                                 id
                                 name
                                 category
+                                brand
                                 imageUrl
                             }
                         }
                     `,
                     variables: {
-                        name: name,
-                        category: category || '',
-                        brand: brand || null,
-                        description: description || '',
+                        name: name.trim(),
+                        category: category.trim(),
+                        brand: brand.trim() || null,
+                        description: description.trim() || '',
                         imageUrl: uploadedImageUrl || null,
                         inventoryTracking: {
-                            sku: sku || '',
+                            sku: sku.trim() || `SKU-${Date.now().toString().slice(-6)}`,
                             unitOfMeasure: unitOfMeasure || 'Pcs (Pieces)',
-                            barcode: barcode || '',
+                            barcode: barcode.trim() || '',
                         },
                         pricing: {
                             costPrice: Number(costPrice) || 0.0,
@@ -173,17 +329,16 @@ export default function AddProductPage() {
 
             const result = await response.json();
 
-            if (result.errors) {
-                console.error('GraphQL Errors:', result.errors);
-                alert('Failed to save product');
-                return;
+            if (result.errors?.length) {
+                throw new Error(result.errors[0].message || 'Failed to save product');
             }
 
-            console.log('Product added successfully:', result.data.addProduct);
-            alert('Product added successfully!');
-        } catch (error) {
-            console.error('Error adding product:', error);
-            alert('An error occurred while saving product.');
+            setFeedback({ type: 'success', message: `Product "${name}" added to inventory successfully!` });
+            setTimeout(() => {
+                router.push('/inventory');
+            }, 1200);
+        } catch (error: any) {
+            setFeedback({ type: 'error', message: error.message || 'An error occurred while saving product.' });
         } finally {
             setUploadingImage(false);
             setLoading(false);
@@ -191,7 +346,7 @@ export default function AddProductPage() {
     };
 
     return (
-        <div className="space-y-6 pb-12">
+        <div className="space-y-6 pb-12 font-sans antialiased">
             {/* 1. TOP HEADER & BREADCRUMB */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -217,20 +372,46 @@ export default function AddProductPage() {
                     </Link>
                     <button
                         onClick={saveProduct}
-                        disabled={loading || uploadingImage}
-                        className="bg-primary hover:bg-primary-container text-on-primary font-medium px-4 py-2.5 rounded-DEFAULT flex items-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                        disabled={loading || uploadingImage || !canCreate('inventory')}
+                        className={`font-medium px-4 py-2.5 rounded-DEFAULT flex items-center gap-2 shadow-xs transition-colors ${
+                            canCreate('inventory') && !loading && !uploadingImage
+                                ? 'bg-primary hover:bg-primary-container text-on-primary cursor-pointer'
+                                : 'bg-surface-container-high text-on-surface-variant opacity-60 cursor-not-allowed'
+                        }`}
                     >
                         <Save className="w-5 h-5" />
                         <span>
-                            {uploadingImage
-                                ? 'Uploading Image...'
-                                : loading
-                                    ? 'Saving...'
-                                    : 'Save Product'}
+                            {!canCreate('inventory')
+                                ? 'Not Permitted'
+                                : uploadingImage
+                                    ? 'Uploading Image...'
+                                    : loading
+                                        ? 'Saving...'
+                                        : 'Save Product'}
                         </span>
                     </button>
                 </div>
             </div>
+
+            {/* Feedback Notification Banner */}
+            {feedback && (
+                <div
+                    className={`p-3.5 rounded-lg text-body-sm font-medium flex items-center justify-between animate-in fade-in duration-200 ${
+                        feedback.type === 'success'
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            : 'bg-rose-50 text-rose-800 border border-rose-200'
+                    }`}
+                >
+                    <span>{feedback.message}</span>
+                    <button
+                        type="button"
+                        onClick={() => setFeedback(null)}
+                        className="hover:opacity-75 cursor-pointer font-bold px-1"
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
 
             {/* 2. BASIC INFORMATION & MEDIA */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -255,39 +436,171 @@ export default function AddProductPage() {
                             />
                         </div>
 
-                        {/* Category & Brand */}
+                        {/* Category & Brand with Dynamic Add */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            
+                            {/* Category Field */}
                             <div className="space-y-1.5">
-                                <label className="text-body-xs font-semibold text-on-surface-variant">
-                                    Category <span className="text-rose-600">*</span>
-                                </label>
-                                <select
-                                    value={category}
-                                    onChange={(e) => setCategory(e.target.value)}
-                                    className="w-full bg-surface-container-low border border-outline-variant rounded-DEFAULT px-3 py-2 text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                >
-                                    <option value="">Select Category</option>
-                                    <option value="Electronics">Electronics</option>
-                                    <option value="Mobile Phones">Mobile Phones</option>
-                                    <option value="Furniture">Furniture</option>
-                                    <option value="Office Supplies">Office Supplies</option>
-                                </select>
+                                <div className="flex items-center justify-between">
+                                    <label className="text-body-xs font-semibold text-on-surface-variant">
+                                        Category <span className="text-rose-600">*</span>
+                                    </label>
+                                    {!isAddingCategory && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsAddingCategory(true)}
+                                            className="text-xs font-bold text-[#005f37] hover:text-[#004e2d] hover:underline flex items-center gap-0.5 cursor-pointer"
+                                        >
+                                            <Add className="w-3.5 h-3.5" />
+                                            <span>Add New</span>
+                                        </button>
+                                    )}
+                                </div>
+
+                                {!isAddingCategory ? (
+                                    <select
+                                        value={category}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__NEW__') {
+                                                setIsAddingCategory(true);
+                                            } else {
+                                                setCategory(e.target.value);
+                                            }
+                                        }}
+                                        className="w-full bg-surface-container-low border border-outline-variant rounded-DEFAULT px-3 py-2 text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all cursor-pointer"
+                                    >
+                                        <option value="">Select Category</option>
+                                        {categories.map((cat) => (
+                                            <option key={cat} value={cat}>
+                                                {cat}
+                                            </option>
+                                        ))}
+                                        <option value="__NEW__" className="text-primary font-bold">
+                                            + Add New Category...
+                                        </option>
+                                    </select>
+                                ) : (
+                                    <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+                                        <input
+                                            type="text"
+                                            autoFocus
+                                            value={newCategoryInput}
+                                            onChange={(e) => setNewCategoryInput(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    handleCreateCategory();
+                                                } else if (e.key === 'Escape') {
+                                                    setIsAddingCategory(false);
+                                                    setNewCategoryInput('');
+                                                }
+                                            }}
+                                            placeholder="Enter category name..."
+                                            className="flex-1 bg-surface-container-low border border-primary rounded-DEFAULT px-3 py-1.5 text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleCreateCategory}
+                                            disabled={!newCategoryInput.trim()}
+                                            className="bg-[#005f37] hover:bg-[#004e2d] disabled:opacity-50 text-white text-xs font-semibold px-3 py-2 rounded-DEFAULT transition-colors cursor-pointer shrink-0"
+                                        >
+                                            Add
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsAddingCategory(false);
+                                                setNewCategoryInput('');
+                                            }}
+                                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                                            title="Cancel"
+                                        >
+                                            <Close className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
+                            {/* Brand Field */}
                             <div className="space-y-1.5">
-                                <label className="text-body-xs font-semibold text-on-surface-variant">
-                                    Brand
-                                </label>
-                                <select
-                                    value={brand}
-                                    onChange={(e) => setBrand(e.target.value)}
-                                    className="w-full bg-surface-container-low border border-outline-variant rounded-DEFAULT px-3 py-2 text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                >
-                                    <option value="">Select Brand</option>
-                                    <option value="Samsung">Samsung</option>
-                                    <option value="Apple">Apple</option>
-                                    <option value="HP">HP</option>
-                                </select>
+                                <div className="flex items-center justify-between">
+                                    <label className="text-body-xs font-semibold text-on-surface-variant">
+                                        Brand
+                                    </label>
+                                    {!isAddingBrand && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsAddingBrand(true)}
+                                            className="text-xs font-bold text-[#005f37] hover:text-[#004e2d] hover:underline flex items-center gap-0.5 cursor-pointer"
+                                        >
+                                            <Add className="w-3.5 h-3.5" />
+                                            <span>Add New</span>
+                                        </button>
+                                    )}
+                                </div>
+
+                                {!isAddingBrand ? (
+                                    <select
+                                        value={brand}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__NEW__') {
+                                                setIsAddingBrand(true);
+                                            } else {
+                                                setBrand(e.target.value);
+                                            }
+                                        }}
+                                        className="w-full bg-surface-container-low border border-outline-variant rounded-DEFAULT px-3 py-2 text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all cursor-pointer"
+                                    >
+                                        <option value="">Select Brand</option>
+                                        {brands.map((b) => (
+                                            <option key={b} value={b}>
+                                                {b}
+                                            </option>
+                                        ))}
+                                        <option value="__NEW__" className="text-primary font-bold">
+                                            + Add New Brand...
+                                        </option>
+                                    </select>
+                                ) : (
+                                    <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+                                        <input
+                                            type="text"
+                                            autoFocus
+                                            value={newBrandInput}
+                                            onChange={(e) => setNewBrandInput(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    handleCreateBrand();
+                                                } else if (e.key === 'Escape') {
+                                                    setIsAddingBrand(false);
+                                                    setNewBrandInput('');
+                                                }
+                                            }}
+                                            placeholder="Enter brand name..."
+                                            className="flex-1 bg-surface-container-low border border-primary rounded-DEFAULT px-3 py-1.5 text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleCreateBrand}
+                                            disabled={!newBrandInput.trim()}
+                                            className="bg-[#005f37] hover:bg-[#004e2d] disabled:opacity-50 text-white text-xs font-semibold px-3 py-2 rounded-DEFAULT transition-colors cursor-pointer shrink-0"
+                                        >
+                                            Add
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsAddingBrand(false);
+                                                setNewBrandInput('');
+                                            }}
+                                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                                            title="Cancel"
+                                        >
+                                            <Close className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

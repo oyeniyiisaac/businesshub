@@ -1,11 +1,5 @@
 import mongoose from 'mongoose';
 
-const MONGO_URI = process.env.MONGO_URI;
-
-if (!MONGO_URI) {
-  throw new Error('Please define the MONGO_URI environment variable inside .env.local');
-}
-
 let cached = (global as any).mongoose;
 
 if (!cached) {
@@ -13,16 +7,22 @@ if (!cached) {
 }
 
 export async function connectDB() {
+  const MONGO_URI = process.env.MONGO_URI;
+
+  if (!MONGO_URI) {
+    throw new Error('Please define the MONGO_URI environment variable inside .env or .env.local');
+  }
+
   if (cached.conn) {
     return cached.conn;
   }
 
   if (!cached.promise) {
     const opts = {
-      bufferCommands: false, // Disables buffering so errors surface immediately if connection fails
+      bufferCommands: false,
     };
 
-    cached.promise = mongoose.connect(MONGO_URI!, opts).then((m) => m);
+    cached.promise = mongoose.connect(MONGO_URI, opts).then((m) => m);
   }
 
   try {
@@ -34,5 +34,3 @@ export async function connectDB() {
 
   return cached.conn;
 }
-
-connectDB()

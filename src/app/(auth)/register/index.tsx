@@ -69,6 +69,7 @@ const Register = () => {
                                 $ownerName: String!
                                 $workEmail: String!
                                 $phoneNumber: String!
+                                $role: String!
                                 $password: String!
                                 $checkActionCode: Boolean
                             ) {
@@ -77,6 +78,7 @@ const Register = () => {
                                     ownerName: $ownerName
                                     workEmail: $workEmail
                                     phoneNumber: $phoneNumber
+                                    role: $role
                                     password: $password
                                     checkActionCode: $checkActionCode
                                 ) {
@@ -84,7 +86,10 @@ const Register = () => {
                                 }
                             }
                         `,
-                        variables: values,
+                        variables: {
+                            ...values,
+                            role: 'SUPER_ADMIN', // Assign the role here
+                        },
                     }),
                 });
 

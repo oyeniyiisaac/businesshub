@@ -1,10 +1,20 @@
 import gql from "graphql-tag";
 
-
 export const typeDefs = gql`
+    # User type returned inside AuthPayload for both Business Owners & Staff
+    type UserPayload {
+        id: ID!
+        fullName: String
+        email: String
+        workEmail: String!
+        phoneNumber: String
+        role: String!
+        mustChangePassword: Boolean
+    }
+
     type AuthPayload {
         token: String!
-        user: Business!
+        user: UserPayload!
     }
 
     type Business {
@@ -13,16 +23,18 @@ export const typeDefs = gql`
         ownerName: String!
         workEmail: String!
         phoneNumber: String!
+        role: String!
         password: String!
         checkActionCode: Boolean!
     }
 
-    extend type Query{
+    type Query {
         businesses: [Business!]!
         business(id: ID!): Business
     }
 
-    extend type Mutation {
+    type Mutation {
         signInUser(workEmail: String!, password: String!): AuthPayload!
+        login(email: String, workEmail: String, password: String!): AuthPayload!
     }
 `;

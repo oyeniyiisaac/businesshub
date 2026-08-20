@@ -14,23 +14,25 @@ export const typeDefs = gql`
     category: String!
     amount: Float!
     dateOfExpense: String!
-    paymentMethod: PaymentMethod!
+    paymentMethod: PaymentMethod
     referenceNumber: String
     description: String
     receiptUrl: String
-    isRecurring: Boolean!
-    createdAt: String!
-    updatedAt: String!
+    status: String
+    isRecurring: Boolean
+    createdAt: String
+    updatedAt: String
   }
 
   input CreateExpenseInput {
     category: String!
     amount: Float!
     dateOfExpense: String!
-    paymentMethod: PaymentMethod!
+    paymentMethod: PaymentMethod
     referenceNumber: String
-    description: String
+    description: String!
     receiptUrl: String
+    status: String
     isRecurring: Boolean
   }
 
@@ -42,15 +44,16 @@ export const typeDefs = gql`
     referenceNumber: String
     description: String
     receiptUrl: String
+    status: String
     isRecurring: Boolean
   }
 
-  type Query {
+  extend type Query {
     expenses: [Expense!]!
     expense(id: ID!): Expense
   }
 
-  type Mutation {
+  extend type Mutation {
     createExpense(input: CreateExpenseInput!): Expense!
     updateExpense(id: ID!, input: UpdateExpenseInput!): Expense!
     deleteExpense(id: ID!): Boolean!

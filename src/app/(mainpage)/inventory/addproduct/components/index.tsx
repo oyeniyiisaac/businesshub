@@ -4,9 +4,10 @@ import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from '@zxing/
 interface BarcodeScannerProps {
   onScanSuccess: (decodedText: string) => void;
   onClose: () => void;
+  inline?: boolean;
 }
 
-export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) => {
+export const BarcodeScanner = ({ onScanSuccess, onClose, inline = false }: BarcodeScannerProps) => {
   const [scanMode, setScanMode] = useState<'camera' | 'file'>('camera');
   const [fileError, setFileError] = useState<string | null>(null);
   const [hasTorch, setHasTorch] = useState(false);
@@ -52,13 +53,24 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
     }
   };
 
-  // 1. Optimized Custom Camera Frame Loop
+  // 1. ZXing Continuous Camera Decoder with Live getUserMedia Stream
   useEffect(() => {
     if (scanMode !== 'camera') return;
 
     let isSubscribed = true;
 
-    const startCamera = async () => {
+    const startDecoder = async () => {
+      // Allow DOM ref binding to settle if mounting synchronously
+      await new Promise((r) => setTimeout(r, 60));
+      if (!isSubscribed) return;
+
+      if (!videoRef.current) {
+        // Retry once if ref wasn't immediately attached
+        await new Promise((r) => setTimeout(r, 120));
+      }
+
+      if (!videoRef.current || !isSubscribed) return;
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
@@ -81,57 +93,31 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
           await videoRef.current.play().catch(() => {});
         }
 
-        // Custom Canvas Scan Loop (Throttled to ~15 FPS)
-        const scanFrame = async () => {
-          if (!isSubscribed) return;
-
-          const now = Date.now();
-          const video = videoRef.current;
-          const canvas = canvasRef.current;
-
-          if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
-            // Process frame every ~66ms (15 FPS) to save battery and lower CPU usage
-            if (now - lastScanTimeRef.current > 66) {
-              lastScanTimeRef.current = now;
-
-              const ctx = canvas.getContext('2d', { willReadFrequently: true });
-              if (ctx) {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                try {
-                  // decodeFromCanvasElement handles HTMLCanvasElement across all ZXing versions
-                  const result = await codeReader.decodeFromCanvasElement(canvas);
-                  if (result && isSubscribed) {
-                    onScanSuccessRef.current(result.getText());
-                    return; // Exit scanning loop on successful match
-                  }
-                } catch (err: any) {
-                  // Silently swallow ZXing's internal NotFoundException frame drops
-                }
-              }
+        codeReader.decodeFromStream(stream, videoRef.current || undefined, (result, err) => {
+          if (result && isSubscribed) {
+            const text = result.getText();
+            if (text) {
+              onScanSuccessRef.current(text);
             }
           }
-
-          animationFrameRef.current = requestAnimationFrame(scanFrame);
-        };
-
-        animationFrameRef.current = requestAnimationFrame(scanFrame);
+        });
       } catch (err) {
         console.error('Camera stream access failed:', err);
       }
     };
 
-    startCamera();
+    startDecoder();
 
     return () => {
       isSubscribed = false;
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+      try {
+        codeReader.reset();
+      } catch {
+        // ignore
       }
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
       }
     };
   }, [scanMode, codeReader]);
@@ -184,14 +170,85 @@ export const BarcodeScanner = ({ onScanSuccess, onClose }: BarcodeScannerProps) 
   };
 
   const handleClose = () => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+    try {
+      codeReader.reset();
+    } catch {
+      // ignore
     }
     onClose();
   };
+
+  if (inline) {
+    return (
+      <div className="relative w-full aspect-video overflow-hidden rounded-lg bg-black flex items-center justify-center border-2 border-emerald-500/80 shadow-inner">
+        {scanMode === 'camera' ? (
+          <>
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              className="w-full h-full object-cover bg-black"
+            />
+            <canvas ref={canvasRef} className="hidden" />
+
+            <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-3">
+              <div className="w-11/12 h-24 border-2 border-emerald-500 rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.5)] relative flex items-center justify-center">
+                <div className="w-full h-0.5 bg-red-500/80 animate-pulse"></div>
+              </div>
+              <p className="text-white/90 text-[11px] mt-2 bg-black/70 px-2.5 py-1 rounded-full font-medium">
+                Position barcode inside viewfinder
+              </p>
+            </div>
+
+            <div className="absolute top-2 right-2 flex flex-col gap-1.5 z-10">
+              {hasTorch && (
+                <button
+                  type="button"
+                  onClick={toggleTorch}
+                  className="bg-black/70 text-white px-2.5 py-1 rounded-full text-[10px] font-semibold hover:bg-black/90 transition shadow-md cursor-pointer"
+                >
+                  {torchOn ? '🔦 Flash Off' : '🔦 Flash On'}
+                </button>
+              )}
+
+              {hasZoomSupport && (
+                <button
+                  type="button"
+                  onClick={() => applyZoom(zoomLevel === 1 ? 2 : 1)}
+                  className="bg-black/70 text-white px-2.5 py-1 rounded-full text-[10px] font-semibold hover:bg-black/90 transition shadow-md cursor-pointer"
+                >
+                  {zoomLevel === 1 ? '🔍 2x Zoom' : '🔍 1x Zoom'}
+                </button>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-600 rounded-lg p-4 space-y-2 w-full h-full text-white">
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <p className="text-xs text-gray-300 text-center">
+              Select image containing barcode
+            </p>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="px-3 py-1.5 bg-emerald-600 text-white font-medium text-xs rounded-lg hover:bg-emerald-700 transition"
+            >
+              Choose Image File
+            </button>
+            {fileError && (
+              <p className="text-[10px] text-red-400 text-center">{fileError}</p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">

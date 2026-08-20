@@ -18,6 +18,10 @@ export interface IVendor extends Document {
   physicalAddress?: string;
   defaultPaymentTerms: PaymentTerms;
   initialBalanceOwed: number;
+  outstandingBalance: number;
+  activeOrders?: number;
+  pendingDeliveries?: number;
+  status: 'Active' | 'Inactive';
   enforceCreditLimit: boolean;
   creditLimitAmount: number;
   createdAt: Date;
@@ -34,6 +38,7 @@ const VendorSchema = new Schema<IVendor>(
     category: {
       type: String,
       trim: true,
+      default: 'General',
     },
     tin: {
       type: String,
@@ -64,6 +69,23 @@ const VendorSchema = new Schema<IVendor>(
     initialBalanceOwed: {
       type: Number,
       default: 0.0,
+    },
+    outstandingBalance: {
+      type: Number,
+      default: 0.0,
+    },
+    activeOrders: {
+      type: Number,
+      default: 0,
+    },
+    pendingDeliveries: {
+      type: Number,
+      default: 0,
+    },
+    status: {
+      type: String,
+      enum: ['Active', 'Inactive'],
+      default: 'Active',
     },
     enforceCreditLimit: {
       type: Boolean,

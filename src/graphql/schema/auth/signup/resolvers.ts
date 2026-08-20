@@ -9,6 +9,7 @@ type signup = {
     ownerName: string;
     workEmail: string;
     phoneNumber: string;
+    role: string;
     password: string;
     checkActionCode?: boolean;
 };
@@ -25,9 +26,9 @@ export const resolvers = {
         },
     },
     Mutation: {
-        signUpUser: async (_: any, { businessName, ownerName, workEmail, phoneNumber, password, checkActionCode }: signup) => {
+        signUpUser: async (_: any, { businessName, ownerName, workEmail, phoneNumber, role, password, checkActionCode }: signup) => {
             await connectDB();
-            if (!businessName || !ownerName || !workEmail || !phoneNumber || !password) {
+            if (!businessName || !ownerName || !workEmail || !phoneNumber || !role || !password) {
                 throw new Error("All fields are required.");
             }
             const existingBusiness = await Business.findOne({ workEmail });
@@ -41,6 +42,7 @@ export const resolvers = {
                 ownerName,
                 workEmail,
                 phoneNumber,
+                role: 'SUPER_ADMIN', // Assign the role here
                 password: hashedPassword,
                 checkActionCode: checkActionCode || false
             });

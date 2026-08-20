@@ -5,6 +5,7 @@ interface ProductInput {
     name: string;
     category: string;
     brand?: string;
+    supplier?: string;
     description?: string;
     imageUrl?: string;
     inventoryTracking: {
@@ -42,6 +43,7 @@ export const resolvers = {
                 name,
                 category,
                 brand,
+                supplier,
                 description,
                 imageUrl,
                 inventoryTracking,
@@ -67,6 +69,7 @@ export const resolvers = {
                 name,
                 category,
                 brand: brand || undefined,
+                supplier: supplier || "Main Warehouse",
                 description: description || "",
                 imageUrl: imageUrl || "",
                 inventoryTracking: {
@@ -88,9 +91,56 @@ export const resolvers = {
             console.log("New product created:", newProduct);
             return newProduct;
         },
+        createProduct: async (
+            _: any,
+            args: ProductInput
+        ) => {
+            await connectDB();
+
+            const {
+                name,
+                category,
+                brand,
+                supplier,
+                description,
+                imageUrl,
+                inventoryTracking,
+                pricing,
+                stockLevel,
+            } = args;
+
+            if (!name || !category || !pricing?.sellingPrice) {
+                throw new Error("Missing required fields: name, category, and selling price.");
+            }
+
+            const newProduct = await Product.create({
+                name,
+                category,
+                brand: brand || undefined,
+                supplier: supplier || "Main Warehouse",
+                description: description || "",
+                imageUrl: imageUrl || "",
+                inventoryTracking: {
+                    sku: inventoryTracking?.sku || "",
+                    unitOfMeasure: inventoryTracking?.unitOfMeasure || "Pcs (Pieces)",
+                    barcode: inventoryTracking?.barcode || "",
+                },
+                pricing: {
+                    costPrice: Number(pricing?.costPrice ?? 0),
+                    sellingPrice: Number(pricing.sellingPrice),
+                    taxRule: pricing?.taxRule || "VAT 7.5%",
+                },
+                stockLevel: {
+                    initialQuantity: Number(stockLevel?.initialQuantity ?? 0),
+                    lowStockThreshold: Number(stockLevel?.lowStockThreshold ?? 5),
+                    enableLowStockAlerts: Boolean(stockLevel?.enableLowStockAlerts ?? true),
+                },
+            });
+            return newProduct;
+        },
         updateProduct: async (
             _: any,
-            { id, name, category, brand, description, imageUrl, inventoryTracking, pricing, stockLevel }: any
+            { id, name, category, brand, supplier, description, imageUrl, inventoryTracking, pricing, stockLevel }: any
         ) => {
             await connectDB();
 
@@ -100,6 +150,7 @@ export const resolvers = {
                     ...(name ? { name } : {}),
                     ...(category ? { category } : {}),
                     ...(brand !== undefined ? { brand } : {}),
+                    ...(supplier !== undefined ? { supplier } : {}),
                     ...(description !== undefined ? { description } : {}),
                     ...(imageUrl !== undefined ? { imageUrl } : {}),
                     ...(inventoryTracking ? { inventoryTracking } : {}),

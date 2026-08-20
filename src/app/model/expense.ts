@@ -18,6 +18,7 @@ export interface IExpense extends Document {
   description?: string;
   receiptUrl?: string;
   isRecurring: boolean;
+  status: 'Approved' | 'Pending' | 'Rejected';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,7 +43,7 @@ const ExpenseSchema = new Schema<IExpense>(
     paymentMethod: {
       type: String,
       enum: Object.values(PaymentMethod),
-      required: [true, 'Payment Method is required'],
+      default: PaymentMethod.CASH,
     },
     referenceNumber: {
       type: String,
@@ -58,6 +59,11 @@ const ExpenseSchema = new Schema<IExpense>(
       type: String,
       trim: true,
       default: null,
+    },
+    status: {
+      type: String,
+      enum: ['Approved', 'Pending', 'Rejected'],
+      default: 'Approved',
     },
     isRecurring: {
       type: Boolean,
