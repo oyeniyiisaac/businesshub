@@ -31,10 +31,43 @@ export default function NotificationDropdown() {
   const [filterType, setFilterType] = useState<"ALL" | "stock" | "sale" | "expense">("ALL");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const getReadIds = (): string[] => {
+    if (typeof window === "undefined") return [];
+    try {
+      return JSON.parse(localStorage.getItem("readNotifIds") || "[]");
+    } catch {
+      return [];
+    }
+  };
+
+  const getDismissedIds = (): string[] => {
+    if (typeof window === "undefined") return [];
+    try {
+      return JSON.parse(localStorage.getItem("dismissedNotifIds") || "[]");
+    } catch {
+      return [];
+    }
+  };
+
+  const saveReadIds = (ids: string[]) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("readNotifIds", JSON.stringify(ids));
+    }
+  };
+
+  const saveDismissedIds = (ids: string[]) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("dismissedNotifIds", JSON.stringify(ids));
+    }
+  };
+
   // Fetch real notifications directly from DB
   const fetchLiveAlerts = useCallback(async () => {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
+      const readIds = new Set(getReadIds());
+      const dismissedIds = new Set(getDismissedIds());
+
       const res = await fetch("/api/graphql", {
         method: "POST",
         headers: {
@@ -77,16 +110,18 @@ export default function NotificationDropdown() {
       // 1. Low stock alerts from DB
       if (result.data?.products) {
         result.data.products.forEach((p: any) => {
+          const id = `stock-${p.id}`;
+          if (dismissedIds.has(id)) return;
           const qty = p.stockLevel?.initialQuantity ?? 0;
           const threshold = p.stockLevel?.lowStockThreshold ?? 5;
           if (qty <= threshold) {
             loadedNotifs.push({
-              id: `stock-${p.id}`,
+              id,
               title: "Low Stock Alert",
               message: `"${p.name}" has only ${qty} units remaining in inventory.`,
               time: "Just now",
               type: "stock",
-              read: false,
+              read: readIds.has(id),
               link: "/inventory",
             });
           }
@@ -95,14 +130,16 @@ export default function NotificationDropdown() {
 
       // 2. Recent sales from DB
       if (result.data?.transactions) {
-        result.data.transactions.slice(0, 3).forEach((t: any) => {
+        result.data.transactions.slice(0, 5).forEach((t: any) => {
+          const id = `sale-${t.id}`;
+          if (dismissedIds.has(id)) return;
           loadedNotifs.push({
-            id: `sale-${t.id}`,
+            id,
             title: "POS Sale Recorded",
             message: `Sale ${t.receiptNumber} for ₦ ${t.grandTotal?.toLocaleString()} (${t.paymentStatus}).`,
             time: new Date(t.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             type: "sale",
-            read: false,
+            read: readIds.has(id),
             link: "/reports",
           });
         });
@@ -111,14 +148,16 @@ export default function NotificationDropdown() {
       // 3. Pending expenses from DB
       if (result.data?.expenses) {
         result.data.expenses.forEach((e: any) => {
+          const id = `exp-${e.id}`;
+          if (dismissedIds.has(id)) return;
           if (e.status === "Pending") {
             loadedNotifs.push({
-              id: `exp-${e.id}`,
+              id,
               title: "Expense Pending Approval",
               message: `${e.description} (₦ ${e.amount?.toLocaleString()}) requires approval.`,
               time: "Pending",
               type: "expense",
-              read: false,
+              read: readIds.has(id),
               link: "/expenses",
             });
           }
@@ -160,22 +199,39 @@ export default function NotificationDropdown() {
   };
 
   const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotifications((prev) => {
+      const updated = prev.map((n) => ({ ...n, read: true }));
+      const readIds = Array.from(new Set([...getReadIds(), ...updated.map((n) => n.id)]));
+      saveReadIds(readIds);
+      return updated;
+    });
   };
 
   const clearAllNotifications = () => {
-    setNotifications([]);
+    setNotifications((prev) => {
+      const dismissedIds = Array.from(new Set([...getDismissedIds(), ...prev.map((n) => n.id)]));
+      saveDismissedIds(dismissedIds);
+      return [];
+    });
   };
 
   const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+    setNotifications((prev) => {
+      const updated = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+      const readIds = Array.from(new Set([...getReadIds(), id]));
+      saveReadIds(readIds);
+      return updated;
+    });
   };
 
   const deleteNotification = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    setNotifications((prev) => {
+      const updated = prev.filter((n) => n.id !== id);
+      const dismissedIds = Array.from(new Set([...getDismissedIds(), id]));
+      saveDismissedIds(dismissedIds);
+      return updated;
+    });
   };
 
   const handleNotificationClick = (item: NotificationItem) => {

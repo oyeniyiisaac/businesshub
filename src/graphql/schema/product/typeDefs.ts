@@ -80,7 +80,18 @@ export const typeDefs = gql`
         stockLevel: StockLevelInput!
     ): Product!
 
-    updateProduct(id: ID!): Product!
+    updateProduct(
+        id: ID!
+        name: String
+        category: String
+        brand: String
+        supplier: String
+        description: String
+        imageUrl: String
+        inventoryTracking: InventoryTrackingInput
+        pricing: PricingAndTaxInput
+        stockLevel: StockLevelInput
+    ): Product!
     deleteProduct(id: ID!): Boolean!
 }
 

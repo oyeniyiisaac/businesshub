@@ -1316,6 +1316,7 @@ export default function POSPage() {
             <BarcodeScanner
               inline
               onScanSuccess={(scannedText) => {
+                setIsScannerModalOpen(false);
                 handleBarcodeScan(scannedText);
               }}
               onClose={() => setIsScannerModalOpen(false)}

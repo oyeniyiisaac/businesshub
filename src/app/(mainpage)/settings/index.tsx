@@ -24,7 +24,9 @@ import {
   Store,
   Storefront,
   Warehouse,
+  PhotoCamera,
 } from "google-material-icons/outlined";
+import CameraCaptureModal from "@/src/components/CameraCaptureModal";
 import RolesAndPermissionsContent from "./roles/index";
 import TaxAndCurrencyContent from "./tax/index";
 import BranchManagementContent from "./branches/index";
@@ -62,6 +64,7 @@ export default function SystemSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // Notification settings state
@@ -155,6 +158,36 @@ export default function SystemSettingsPage() {
 
       setFormData((prev) => ({ ...prev, logoUrl: data.url }));
       setFeedback({ type: "success", message: "Logo uploaded successfully! Remember to save changes." });
+    } catch (err: any) {
+      setFeedback({ type: "error", message: err.message || "Logo upload failed" });
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const processCameraLogoUpload = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      setFeedback({ type: "error", message: "Image size exceeds 5MB limit" });
+      return;
+    }
+
+    setUploadingLogo(true);
+    setFeedback(null);
+
+    try {
+      const uploadData = new FormData();
+      uploadData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: uploadData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to upload logo");
+
+      setFormData((prev) => ({ ...prev, logoUrl: data.url }));
+      setFeedback({ type: "success", message: "Photo captured & uploaded successfully! Remember to save changes." });
     } catch (err: any) {
       setFeedback({ type: "error", message: err.message || "Logo upload failed" });
     } finally {
@@ -381,7 +414,7 @@ export default function SystemSettingsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
                   
                   {/* Business Logo Column */}
-                  <div className="md:col-span-4 flex flex-col items-center text-center space-y-2">
+                  <div className="md:col-span-4 flex flex-col items-center text-center space-y-3">
                     <div
                       onClick={() => fileInputRef.current?.click()}
                       className="w-36 h-36 rounded-lg border-2 border-dashed border-outline-variant hover:border-primary bg-surface-container-low flex flex-col items-center justify-center p-3 cursor-pointer transition-all relative overflow-hidden group shadow-2xs"
@@ -409,14 +442,36 @@ export default function SystemSettingsPage() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/png, image/jpeg, image/svg+xml"
+                      accept="image/*"
+                      capture="environment"
                       onChange={handleLogoUpload}
                       className="hidden"
                     />
 
                     <div>
                       <p className="text-body-xs font-semibold text-on-surface">Business Logo</p>
-                      <p className="text-[11px] text-on-surface-variant">JPG, PNG or SVG. Max 2MB.</p>
+                      <p className="text-[11px] text-on-surface-variant mb-2">JPG, PNG or SVG. Max 5MB.</p>
+
+                      <div className="flex items-center gap-2 justify-center">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingLogo}
+                          className="px-2.5 py-1.5 rounded border border-outline-variant hover:bg-surface-container text-on-surface text-body-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+                        >
+                          <CloudUpload className="w-3.5 h-3.5" />
+                          <span>Upload File</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsCameraModalOpen(true)}
+                          disabled={uploadingLogo}
+                          className="px-2.5 py-1.5 rounded border border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary text-body-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+                        >
+                          <PhotoCamera className="w-3.5 h-3.5" />
+                          <span>Take Photo</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -621,6 +676,14 @@ export default function SystemSettingsPage() {
 
         </div>
       </div>
+
+      <CameraCaptureModal
+        isOpen={isCameraModalOpen}
+        onClose={() => setIsCameraModalOpen(false)}
+        onCapture={(file) => {
+          processCameraLogoUpload(file);
+        }}
+      />
     </div>
   );
 }

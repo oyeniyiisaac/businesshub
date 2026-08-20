@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -27,6 +27,7 @@ import {
 } from 'google-material-icons/outlined';
 import { PermissionsProvider, usePermissions } from '@/src/context/PermissionsContext';
 import NotificationDropdown from '@/src/components/NotificationDropdown';
+import ThemeToggle from '@/src/components/ThemeToggle';
 
 interface SidebarLinkItem {
     name: string;
@@ -133,11 +134,46 @@ function DashboardLayoutContent({
     const { userRole, isOwner, canView, canCreate } = usePermissions();
     const [userName, setUserName] = useState<string>('User');
     const [userEmail, setUserEmail] = useState<string>('');
+    const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+    const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
     useEffect(() => {
         setIsMobileOpen(false);
     }, [pathname]);
+
+    const fetchCompanyLogo = useCallback(async () => {
+        try {
+            const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+            const res = await fetch('/api/graphql', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                    query: `
+                        query GetCompanyLogo {
+                            businessProfile {
+                                logoUrl
+                            }
+                        }
+                    `,
+                }),
+            });
+
+            const result = await res.json();
+            if (result.data?.businessProfile?.logoUrl) {
+                setCompanyLogoUrl(result.data.businessProfile.logoUrl);
+            }
+        } catch {
+            // Fall back to user initials
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchCompanyLogo();
+    }, [fetchCompanyLogo]);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -285,7 +321,7 @@ function DashboardLayoutContent({
                     <button
                         onClick={() => {
                             setIsMobileOpen(false);
-                            handleLogout();
+                            setIsLogoutModalOpen(true);
                         }}
                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-DEFAULT text-body-sm font-medium text-secondary-fixed hover:bg-tertiary-container hover:text-on-tertiary transition-colors cursor-pointer ${collapsed ? 'justify-center' : ''
                             }`}
@@ -362,8 +398,16 @@ function DashboardLayoutContent({
                                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                                 className="flex items-center gap-2 p-1 rounded-lg hover:bg-surface-container transition-colors cursor-pointer text-left"
                             >
-                                <div className="w-8 h-8 rounded-full bg-[#005f37]/15 border border-[#005f37]/30 flex items-center justify-center text-[#005f37] font-bold text-xs">
-                                    {userName ? userName.slice(0, 2).toUpperCase() : 'CU'}
+                                <div className="w-8 h-8 rounded-full bg-[#005f37]/15 border border-[#005f37]/30 flex items-center justify-center text-[#005f37] font-bold text-xs overflow-hidden shrink-0">
+                                    {companyLogoUrl ? (
+                                        <img
+                                            src={companyLogoUrl}
+                                            alt="Company Logo"
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        userName ? userName.slice(0, 2).toUpperCase() : 'CU'
+                                    )}
                                 </div>
                                 <div className="hidden md:flex flex-col text-left">
                                     <span className="text-body-sm font-semibold text-on-surface leading-tight">
@@ -406,12 +450,15 @@ function DashboardLayoutContent({
                                         <span>Help & Support</span>
                                     </Link>
 
+                                    {/* Mode Switcher inside Profile Menu */}
+                                    <ThemeToggle variant="menu-item" />
+
                                     <div className="border-t border-slate-100 my-1" />
 
                                     <button
                                         onClick={() => {
                                             setIsProfileMenuOpen(false);
-                                            handleLogout();
+                                            setIsLogoutModalOpen(true);
                                         }}
                                         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-rose-700 hover:bg-rose-50 transition cursor-pointer"
                                     >
@@ -462,6 +509,47 @@ function DashboardLayoutContent({
                     )}
                 </main>
             </div>
+
+            {/* Logout Confirmation Modal */}
+            {isLogoutModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+                    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-rose-100/80 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
+                                <Logout className="w-5 h-5 text-rose-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-bold text-on-surface">Confirm Logout</h3>
+                                <p className="text-xs text-on-surface-variant">Logged in as {userName}</p>
+                            </div>
+                        </div>
+
+                        <p className="text-body-xs text-on-surface-variant leading-relaxed">
+                            Are you sure you want to log out of your account? You will need to sign back in to access your business operations.
+                        </p>
+
+                        <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-outline-variant/60">
+                            <button
+                                type="button"
+                                onClick={() => setIsLogoutModalOpen(false)}
+                                className="px-4 py-2 rounded-DEFAULT border border-outline-variant hover:bg-surface-container text-on-surface text-body-xs font-semibold transition cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsLogoutModalOpen(false);
+                                    handleLogout();
+                                }}
+                                className="px-4 py-2 rounded-DEFAULT bg-rose-600 hover:bg-rose-700 text-white text-body-xs font-semibold shadow-xs transition cursor-pointer"
+                            >
+                                Yes, Log Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

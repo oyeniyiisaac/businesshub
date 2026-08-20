@@ -93,10 +93,13 @@ export const BarcodeScanner = ({ onScanSuccess, onClose, inline = false }: Barco
           await videoRef.current.play().catch(() => {});
         }
 
+        let hasScanned = false;
+
         codeReader.decodeFromStream(stream, videoRef.current || undefined, (result, err) => {
-          if (result && isSubscribed) {
+          if (result && isSubscribed && !hasScanned) {
             const text = result.getText();
             if (text) {
+              hasScanned = true;
               onScanSuccessRef.current(text);
             }
           }

@@ -4,68 +4,68 @@
 
 @theme {
   /* ==========================================================================
-     COLOR TOKENS (Lumina Trust Design System)
+     DYNAMIC COLOR TOKENS (Switchable between Light & Dark mode)
      ========================================================================== */
-  --color-surface: #f5fbf3;
-  --color-surface-dim: #d6dcd4;
-  --color-surface-bright: #f5fbf3;
-  --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f0f5ee;
-  --color-surface-container: #eaefe8;
-  --color-surface-container-high: #e4eae2;
-  --color-surface-container-highest: #dee4dd;
+  --color-surface: var(--surface);
+  --color-surface-dim: var(--surface-dim);
+  --color-surface-bright: var(--surface-bright);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
 
-  --color-on-surface: #171d19;
-  --color-on-surface-variant: #3e4a41;
-  --color-inverse-surface: #2c322d;
-  --color-inverse-on-surface: #edf2eb;
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-inverse-surface: var(--inverse-surface);
+  --color-inverse-on-surface: var(--inverse-on-surface);
 
-  --color-outline: #6e7a70;
-  --color-outline-variant: #bdcabe;
-  --color-surface-tint: #006d40;
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --color-surface-tint: var(--surface-tint);
 
   /* Brand Primary & Secondary */
-  --color-primary: #006b3f;
-  --color-on-primary: #ffffff;
-  --color-primary-container: #008751;
-  --color-on-primary-container: #fdfff9;
-  --color-inverse-primary: #70db9d;
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary-container: var(--on-primary-container);
+  --color-inverse-primary: var(--inverse-primary);
 
-  --color-secondary: #465f88;
-  --color-on-secondary: #ffffff;
-  --color-secondary-container: #b6d0ff;
-  --color-on-secondary-container: #3f5881;
+  --color-secondary: var(--secondary);
+  --color-on-secondary: var(--on-secondary);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-secondary-container: var(--on-secondary-container);
 
-  --color-tertiary: #9d3d43;
-  --color-on-tertiary: #ffffff;
-  --color-tertiary-container: #bd555a;
-  --color-on-tertiary-container: #fffeff;
+  --color-tertiary: var(--tertiary);
+  --color-on-tertiary: var(--on-tertiary);
+  --color-tertiary-container: var(--tertiary-container);
+  --color-on-tertiary-container: var(--on-tertiary-container);
 
   /* Status & Errors */
-  --color-error: #ba1a1a;
-  --color-on-error: #ffffff;
-  --color-error-container: #ffdad6;
-  --color-on-error-container: #93000a;
+  --color-error: var(--error);
+  --color-on-error: var(--on-error);
+  --color-error-container: var(--error-container);
+  --color-on-error-container: var(--on-error-container);
 
   /* Fixed Palette Roles */
-  --color-primary-fixed: #8df8b7;
-  --color-primary-fixed-dim: #70db9d;
-  --color-on-primary-fixed: #002110;
-  --color-on-primary-fixed-variant: #00522f;
+  --color-primary-fixed: var(--primary-fixed);
+  --color-primary-fixed-dim: var(--primary-fixed-dim);
+  --color-on-primary-fixed: var(--on-primary-fixed);
+  --color-on-primary-fixed-variant: var(--on-primary-fixed-variant);
 
-  --color-secondary-fixed: #d6e3ff;
-  --color-secondary-fixed-dim: #aec7f6;
-  --color-on-secondary-fixed: #001b3d;
-  --color-on-secondary-fixed-variant: #2d476f;
+  --color-secondary-fixed: var(--secondary-fixed);
+  --color-secondary-fixed-dim: var(--secondary-fixed-dim);
+  --color-on-secondary-fixed: var(--on-secondary-fixed);
+  --color-on-secondary-fixed-variant: var(--on-secondary-fixed-variant);
 
-  --color-tertiary-fixed: #ffdad9;
-  --color-tertiary-fixed-dim: #ffb3b3;
-  --color-on-tertiary-fixed: #40000a;
-  --color-on-tertiary-fixed-variant: #80272e;
+  --color-tertiary-fixed: var(--tertiary-fixed);
+  --color-tertiary-fixed-dim: var(--tertiary-fixed-dim);
+  --color-on-tertiary-fixed: var(--on-tertiary-fixed);
+  --color-on-tertiary-fixed-variant: var(--on-tertiary-fixed-variant);
 
-  --color-background: #f5fbf3;
-  --color-on-background: #171d19;
-  --color-surface-variant: #dee4dd;
+  --color-background: var(--background);
+  --color-on-background: var(--on-background);
+  --color-surface-variant: var(--surface-variant);
 
   /* ==========================================================================
      LAYOUT & SPACING TOKENS
@@ -93,9 +93,151 @@
   --font-mono: var(--font-jetbrains), monospace;
 }
 
-/* ==========================================================================
-   CUSTOM TYPOGRAPHY UTILITIES
-   ========================================================================== */
+/* ===============================================================================
+   1. LIGHT MODE (DEFAULT FOR EVERY PAGE)
+   ================================================================================ */
+:root, .light {
+  color-scheme: light;
+
+  /* Surface & Canvas Tokens (Light) */
+  --surface: #f5fbf3;
+  --surface-dim: #d6dcd4;
+  --surface-bright: #f5fbf3;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f0f5ee;
+  --surface-container: #eaefe8;
+  --surface-container-high: #e4eae2;
+  --surface-container-highest: #dee4dd;
+  --surface-variant: #dee4dd;
+  --background: #f5fbf3;
+
+  /* On-Surface / Typography Tokens */
+  --on-surface: #171d19;
+  --on-surface-variant: #3e4a41;
+  --on-background: #171d19;
+  --inverse-surface: #2c322d;
+  --inverse-on-surface: #edf2eb;
+
+  /* Outlines & Borders */
+  --outline: #6e7a70;
+  --outline-variant: #bdcabe;
+  --surface-tint: #006d40;
+
+  /* Primary (Success Green) */
+  --primary: #006b3f;
+  --on-primary: #ffffff;
+  --primary-container: #008751;
+  --on-primary-container: #fdfff9;
+  --inverse-primary: #70db9d;
+  --primary-fixed: #8df8b7;
+  --primary-fixed-dim: #70db9d;
+  --on-primary-fixed: #002110;
+  --on-primary-fixed-variant: #00522f;
+
+  /* Secondary (Classic Navy) */
+  --secondary: #465f88;
+  --on-secondary: #ffffff;
+  --secondary-container: #b6d0ff;
+  --on-secondary-container: #3f5881;
+  --secondary-fixed: #d6e3ff;
+  --secondary-fixed-dim: #aec7f6;
+  --on-secondary-fixed: #001b3d;
+  --on-secondary-fixed-variant: #2d476f;
+
+  /* Tertiary / Accents */
+  --tertiary: #9d3d43;
+  --on-tertiary: #ffffff;
+  --tertiary-container: #bd555a;
+  --on-tertiary-container: #fffeff;
+  --tertiary-fixed: #ffdad9;
+  --tertiary-fixed-dim: #ffb3b3;
+  --on-tertiary-fixed: #40000a;
+  --on-tertiary-fixed-variant: #80272e;
+
+  /* Error / Danger */
+  --error: #ba1a1a;
+  --on-error: #ffffff;
+  --error-container: #ffdad6;
+  --on-error-container: #93000a;
+}
+
+/* ===============================================================================
+   2. DARK MODE
+   ================================================================================ */
+.dark {
+  color-scheme: dark;
+
+  /* Surface & Canvas Tokens (Dark) */
+  --surface: #0e1410;
+  --surface-dim: #0e1410;
+  --surface-bright: #272d28;
+  --surface-container-lowest: #121814;
+  --surface-container-low: #171d19;
+  --surface-container: #1d231e;
+  --surface-container-high: #242a25;
+  --surface-container-highest: #2b312c;
+  --surface-variant: #2b312c;
+  --background: #0b100c;
+
+  /* On-Surface / Typography Tokens */
+  --on-surface: #e1e7e0;
+  --on-surface-variant: #9eb0a1;
+  --on-background: #e1e7e0;
+  --inverse-surface: #e1e7e0;
+  --inverse-on-surface: #2c322d;
+
+  /* Outlines & Borders */
+  --outline: #4d5c50;
+  --outline-variant: #263228;
+  --surface-tint: #70db9d;
+
+  /* Primary (Success Green) */
+  --primary: #008751;
+  --on-primary: #ffffff;
+  --primary-container: #005f37;
+  --on-primary-container: #fdfff9;
+  --inverse-primary: #006d40;
+  --primary-fixed: #8df8b7;
+  --primary-fixed-dim: #70db9d;
+  --on-primary-fixed: #002110;
+  --on-primary-fixed-variant: #00522f;
+
+  /* Secondary (Dark Navy Sidebar) */
+  --secondary: #141c2b;
+  --on-secondary: #f1f5f9;
+  --secondary-container: #1e293b;
+  --on-secondary-container: #cbd5e1;
+  --secondary-fixed: #94a3b8;
+  --secondary-fixed-dim: #64748b;
+  --on-secondary-fixed: #f8fafc;
+  --on-secondary-fixed-variant: #cbd5e1;
+
+  /* Tertiary / Accents */
+  --tertiary: #ffb3b3;
+  --on-tertiary: #610f1a;
+  --tertiary-container: #bd555a;
+  --on-tertiary-container: #fffeff;
+  --tertiary-fixed: #ffdad9;
+  --tertiary-fixed-dim: #ffb3b3;
+  --on-tertiary-fixed: #40000a;
+  --on-tertiary-fixed-variant: #80272e;
+
+  /* Error / Danger */
+  --error: #ffb4ab;
+  --on-error: #690005;
+  --error-container: #93000a;
+  --on-error-container: #ffdad6;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--on-surface);
+  font-family: var(--font-sans, Inter, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Typography Utilities */
 @utility text-headline-xl {
   font-family: var(--font-inter);
   font-size: 36px;
@@ -149,4 +291,43 @@
   line-height: 16px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+.font-tabular {
+  font-family: var(--font-jetbrains-mono, "JetBrains Mono", monospace);
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+.label-caps {
+  font-family: var(--font-inter, Inter, sans-serif);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Explicit white card overrides for Dark Mode */
+.dark .bg-white {
+  background-color: var(--surface-container-lowest) !important;
+  color: var(--on-surface) !important;
+}
+.dark .bg-slate-50,
+.dark .bg-slate-100 {
+  background-color: var(--surface-container-low) !important;
+}
+.dark .text-slate-900,
+.dark .text-slate-800 {
+  color: var(--on-surface) !important;
+}
+.dark .text-slate-700,
+.dark .text-slate-600,
+.dark .text-slate-500 {
+  color: var(--on-surface-variant) !important;
+}
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300 {
+  border-color: var(--outline-variant) !important;
 }

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Info,
     Image,
@@ -14,9 +14,11 @@ import {
     Warehouse,
     Add,
     Close,
+    PhotoCamera,
 } from 'google-material-icons/outlined';
 import { BarcodeScanner } from './components';
 import { usePermissions } from '@/src/context/PermissionsContext';
+import CameraCaptureModal from '@/src/components/CameraCaptureModal';
 
 const DEFAULT_CATEGORIES = [
     'Electronics',
@@ -43,9 +45,11 @@ const DEFAULT_BRANDS = [
     'Generic / No Brand',
 ];
 
-export default function AddProductPage() {
+function AddProductForm() {
     const router = useRouter();
-    const { canCreate } = usePermissions();
+    const searchParams = useSearchParams();
+    const editId = searchParams ? (searchParams.get('id') || searchParams.get('edit')) : null;
+    const { canCreate, canEdit } = usePermissions();
 
     // 1. FORM STATES
     const [name, setName] = useState('');
@@ -68,6 +72,7 @@ export default function AddProductPage() {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [imageUrl, setImageUrl] = useState<string>('');
     const [uploadingImage, setUploadingImage] = useState(false);
+    const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
     const mediaInputRef = useRef<HTMLInputElement>(null);
 
     // Inventory & Tracking State
@@ -88,6 +93,83 @@ export default function AddProductPage() {
 
     const [loading, setLoading] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+    // Fetch single product details if editing
+    const fetchProductToEdit = useCallback(async (id: string) => {
+        setLoading(true);
+        try {
+            const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+            const res = await fetch('/api/graphql', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                    query: `
+                        query GetProductToEdit($id: ID!) {
+                            product(id: $id) {
+                                id
+                                name
+                                category
+                                brand
+                                description
+                                imageUrl
+                                inventoryTracking {
+                                    sku
+                                    unitOfMeasure
+                                    barcode
+                                }
+                                pricing {
+                                    costPrice
+                                    sellingPrice
+                                    taxRule
+                                }
+                                stockLevel {
+                                    initialQuantity
+                                    lowStockThreshold
+                                    enableLowStockAlerts
+                                }
+                            }
+                        }
+                    `,
+                    variables: { id },
+                }),
+            });
+
+            const result = await res.json();
+            const p = result.data?.product;
+            if (p) {
+                setName(p.name || '');
+                setCategory(p.category || '');
+                setBrand(p.brand || '');
+                setDescription(p.description || '');
+                if (p.imageUrl) {
+                    setImageUrl(p.imageUrl);
+                    setPreviewUrl(p.imageUrl);
+                }
+                setSku(p.inventoryTracking?.sku || '');
+                setUnitOfMeasure(p.inventoryTracking?.unitOfMeasure || 'Pcs (Pieces)');
+                setBarcode(p.inventoryTracking?.barcode || '');
+                setCostPrice(p.pricing?.costPrice ?? '');
+                setSellingPrice(p.pricing?.sellingPrice ?? '');
+                setTaxRule(p.pricing?.taxRule || 'VAT 7.5%');
+                setInitialQuantity(p.stockLevel?.initialQuantity ?? 0);
+                setLowStockThreshold(p.stockLevel?.lowStockThreshold ?? 5);
+                setEnableLowStockAlerts(p.stockLevel?.enableLowStockAlerts ?? true);
+            }
+        } catch (err) {
+            console.error('Failed to fetch product details for edit:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (editId) {
+            fetchProductToEdit(editId);
+        }
+    }, [editId, fetchProductToEdit]);
 
     // Load existing categories and brands from DB & LocalStorage
     const fetchExistingMetadata = useCallback(async () => {
@@ -240,10 +322,11 @@ export default function AddProductPage() {
         }
     };
 
-    // 2. SAVE PRODUCT FUNCTION
+    // 2. SAVE / UPDATE PRODUCT FUNCTION
     const saveProduct = async () => {
-        if (!canCreate('inventory')) {
-            setFeedback({ type: 'error', message: 'You do not have permission to add products to inventory.' });
+        const hasPermission = editId ? canEdit('inventory') : canCreate('inventory');
+        if (!hasPermission) {
+            setFeedback({ type: 'error', message: `You do not have permission to ${editId ? 'edit' : 'add'} products.` });
             return;
         }
 
@@ -266,74 +349,125 @@ export default function AddProductPage() {
             }
 
             const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+            const query = editId
+                ? `
+                    mutation UpdateProduct(
+                        $id: ID!
+                        $name: String
+                        $category: String
+                        $brand: String
+                        $description: String
+                        $imageUrl: String
+                        $inventoryTracking: InventoryTrackingInput
+                        $pricing: PricingAndTaxInput
+                        $stockLevel: StockLevelInput
+                    ) {
+                        updateProduct(
+                            id: $id
+                            name: $name
+                            category: $category
+                            brand: $brand
+                            description: $description
+                            imageUrl: $imageUrl
+                            inventoryTracking: $inventoryTracking
+                            pricing: $pricing
+                            stockLevel: $stockLevel
+                        ) {
+                            id
+                            name
+                        }
+                    }
+                `
+                : `
+                    mutation AddProduct(
+                        $name: String!
+                        $category: String!
+                        $brand: String
+                        $description: String
+                        $imageUrl: String
+                        $inventoryTracking: InventoryTrackingInput!
+                        $pricing: PricingAndTaxInput!
+                        $stockLevel: StockLevelInput!
+                    ) {
+                        addProduct(
+                            name: $name
+                            category: $category
+                            brand: $brand
+                            description: $description
+                            imageUrl: $imageUrl
+                            inventoryTracking: $inventoryTracking
+                            pricing: $pricing
+                            stockLevel: $stockLevel
+                        ) {
+                            id
+                            name
+                        }
+                    }
+                `;
+
+            const variables = editId
+                ? {
+                    id: editId,
+                    name: name.trim(),
+                    category: category.trim(),
+                    brand: brand.trim() || null,
+                    description: description.trim() || '',
+                    imageUrl: uploadedImageUrl || null,
+                    inventoryTracking: {
+                        sku: sku.trim() || '',
+                        unitOfMeasure: unitOfMeasure || 'Pcs (Pieces)',
+                        barcode: barcode.trim() || '',
+                    },
+                    pricing: {
+                        costPrice: Number(costPrice) || 0.0,
+                        sellingPrice: Number(sellingPrice) || 0.0,
+                        taxRule: taxRule || 'VAT 7.5%',
+                    },
+                    stockLevel: {
+                        initialQuantity: Number(initialQuantity) || 0,
+                        lowStockThreshold: Number(lowStockThreshold) || 1,
+                        enableLowStockAlerts: Boolean(enableLowStockAlerts),
+                    },
+                }
+                : {
+                    name: name.trim(),
+                    category: category.trim(),
+                    brand: brand.trim() || null,
+                    description: description.trim() || '',
+                    imageUrl: uploadedImageUrl || null,
+                    inventoryTracking: {
+                        sku: sku.trim() || `SKU-${Date.now().toString().slice(-6)}`,
+                        unitOfMeasure: unitOfMeasure || 'Pcs (Pieces)',
+                        barcode: barcode.trim() || '',
+                    },
+                    pricing: {
+                        costPrice: Number(costPrice) || 0.0,
+                        sellingPrice: Number(sellingPrice) || 0.0,
+                        taxRule: taxRule || 'VAT 7.5%',
+                    },
+                    stockLevel: {
+                        initialQuantity: Number(initialQuantity) || 0,
+                        lowStockThreshold: Number(lowStockThreshold) || 1,
+                        enableLowStockAlerts: Boolean(enableLowStockAlerts),
+                    },
+                };
+
             const response = await fetch('/api/graphql', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
-                body: JSON.stringify({
-                    query: `
-                        mutation AddProduct(
-                            $name: String!
-                            $category: String!
-                            $brand: String
-                            $description: String
-                            $imageUrl: String
-                            $inventoryTracking: InventoryTrackingInput!
-                            $pricing: PricingAndTaxInput!
-                            $stockLevel: StockLevelInput!
-                        ) {
-                            addProduct(
-                                name: $name
-                                category: $category
-                                brand: $brand
-                                description: $description
-                                imageUrl: $imageUrl
-                                inventoryTracking: $inventoryTracking
-                                pricing: $pricing
-                                stockLevel: $stockLevel
-                            ) {
-                                id
-                                name
-                                category
-                                brand
-                                imageUrl
-                            }
-                        }
-                    `,
-                    variables: {
-                        name: name.trim(),
-                        category: category.trim(),
-                        brand: brand.trim() || null,
-                        description: description.trim() || '',
-                        imageUrl: uploadedImageUrl || null,
-                        inventoryTracking: {
-                            sku: sku.trim() || `SKU-${Date.now().toString().slice(-6)}`,
-                            unitOfMeasure: unitOfMeasure || 'Pcs (Pieces)',
-                            barcode: barcode.trim() || '',
-                        },
-                        pricing: {
-                            costPrice: Number(costPrice) || 0.0,
-                            sellingPrice: Number(sellingPrice) || 0.0,
-                            taxRule: taxRule || 'VAT 7.5%',
-                        },
-                        stockLevel: {
-                            initialQuantity: Number(initialQuantity) || 0,
-                            lowStockThreshold: Number(lowStockThreshold) || 1,
-                            enableLowStockAlerts: Boolean(enableLowStockAlerts),
-                        },
-                    },
-                }),
+                body: JSON.stringify({ query, variables }),
             });
 
             const result = await response.json();
 
             if (result.errors?.length) {
-                throw new Error(result.errors[0].message || 'Failed to save product');
+                throw new Error(result.errors[0].message || `Failed to ${editId ? 'update' : 'save'} product`);
             }
 
-            setFeedback({ type: 'success', message: `Product "${name}" added to inventory successfully!` });
+            setFeedback({ type: 'success', message: `Product "${name}" ${editId ? 'updated' : 'added to inventory'} successfully!` });
             setTimeout(() => {
                 router.push('/inventory');
             }, 1200);
@@ -345,6 +479,8 @@ export default function AddProductPage() {
         }
     };
 
+    const hasPermission = editId ? canEdit('inventory') : canCreate('inventory');
+
     return (
         <div className="space-y-6 pb-12 font-sans antialiased">
             {/* 1. TOP HEADER & BREADCRUMB */}
@@ -355,10 +491,12 @@ export default function AddProductPage() {
                             Inventory
                         </Link>
                         <span>&gt;</span>
-                        <span className="font-semibold text-on-surface">Add New Product</span>
+                        <span className="font-semibold text-on-surface">
+                            {editId ? 'Edit Product' : 'Add New Product'}
+                        </span>
                     </nav>
                     <h1 className="text-2xl font-bold text-on-surface tracking-tight">
-                        Add New Product
+                        {editId ? 'Edit Product Details' : 'Add New Product'}
                     </h1>
                 </div>
 
@@ -372,22 +510,22 @@ export default function AddProductPage() {
                     </Link>
                     <button
                         onClick={saveProduct}
-                        disabled={loading || uploadingImage || !canCreate('inventory')}
+                        disabled={loading || uploadingImage || !hasPermission}
                         className={`font-medium px-4 py-2.5 rounded-DEFAULT flex items-center gap-2 shadow-xs transition-colors ${
-                            canCreate('inventory') && !loading && !uploadingImage
+                            hasPermission && !loading && !uploadingImage
                                 ? 'bg-primary hover:bg-primary-container text-on-primary cursor-pointer'
                                 : 'bg-surface-container-high text-on-surface-variant opacity-60 cursor-not-allowed'
                         }`}
                     >
                         <Save className="w-5 h-5" />
                         <span>
-                            {!canCreate('inventory')
+                            {!hasPermission
                                 ? 'Not Permitted'
                                 : uploadingImage
                                     ? 'Uploading Image...'
                                     : loading
-                                        ? 'Saving...'
-                                        : 'Save Product'}
+                                        ? editId ? 'Updating...' : 'Saving...'
+                                        : editId ? 'Update Product' : 'Save Product'}
                         </span>
                     </button>
                 </div>
@@ -621,10 +759,20 @@ export default function AddProductPage() {
                 </div>
 
                 {/* Media Upload */}
-                <div className="bg-surface-lowest border border-outline-variant rounded-lg p-6 space-y-5 h-full flex flex-col">
-                    <div className="flex items-center gap-2 pb-3 border-b border-outline-variant/60">
-                        <Image className="w-5 h-5 text-primary" />
-                        <h2 className="text-body-md font-bold text-on-surface">Media</h2>
+                <div className="bg-surface-lowest border border-outline-variant rounded-lg p-6 space-y-4 h-full flex flex-col">
+                    <div className="flex items-center justify-between pb-3 border-b border-outline-variant/60">
+                        <div className="flex items-center gap-2">
+                            <Image className="w-5 h-5 text-primary" />
+                            <h2 className="text-body-md font-bold text-on-surface">Media</h2>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsCameraModalOpen(true)}
+                            className="px-2.5 py-1 rounded border border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                        >
+                            <PhotoCamera className="w-4 h-4" />
+                            <span>Take Photo</span>
+                        </button>
                     </div>
 
                     <div
@@ -645,20 +793,41 @@ export default function AddProductPage() {
                                 <p className="text-body-sm font-semibold text-on-surface mb-1">
                                     Click to upload or drag & drop
                                 </p>
-                                <p className="text-body-xs text-on-surface-variant/80">
+                                <p className="text-body-xs text-on-surface-variant/80 mb-3">
                                     SVG, PNG, JPG or GIF (max. 5MB)
                                 </p>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsCameraModalOpen(true);
+                                    }}
+                                    className="px-3 py-1.5 rounded bg-surface-container hover:bg-surface-container-high text-on-surface text-body-xs font-semibold flex items-center gap-1.5 border border-outline-variant/60 transition cursor-pointer"
+                                >
+                                    <PhotoCamera className="w-4 h-4 text-primary" />
+                                    <span>Use Camera Instead</span>
+                                </button>
                             </>
                         )}
                         <input
                             ref={mediaInputRef}
                             type="file"
                             accept="image/*"
+                            capture="environment"
                             className="hidden"
                             onChange={handleFileChange}
                         />
                     </div>
                 </div>
+
+                <CameraCaptureModal
+                    isOpen={isCameraModalOpen}
+                    onClose={() => setIsCameraModalOpen(false)}
+                    onCapture={(file, url) => {
+                        setSelectedFile(file);
+                        setPreviewUrl(url);
+                    }}
+                />
             </div>
 
             {/* 3. INVENTORY & PRICING */}
@@ -867,5 +1036,13 @@ export default function AddProductPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function AddProductPage() {
+    return (
+        <Suspense fallback={<div className="p-8 text-center text-body-sm text-on-surface-variant">Loading product details...</div>}>
+            <AddProductForm />
+        </Suspense>
     );
 }

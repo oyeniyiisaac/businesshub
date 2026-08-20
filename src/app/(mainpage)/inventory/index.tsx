@@ -438,7 +438,7 @@ export default function InventoryPage() {
                         <div className="flex items-center justify-end gap-1.5">
                           {canEdit("inventory") && (
                             <button
-                              onClick={() => router.push("/inventory/addproduct")}
+                              onClick={() => router.push(`/inventory/addproduct?id=${product.id}`)}
                               className="p-1.5 rounded border border-outline-variant/60 text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors cursor-pointer"
                               title="Edit Product"
                             >
