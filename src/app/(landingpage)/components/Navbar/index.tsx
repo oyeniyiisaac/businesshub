@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Close, Store } from 'google-material-icons/filled';
 import { Menu } from 'google-material-icons/outlined';
+import PWAInstallButton from '@/src/components/PWAInstallButton';
 
 const Navbar = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -80,8 +81,9 @@ const Navbar = () => {
                         </Link>
                     </div>
 
-                    {/* Auth Actions */}
+                    {/* Auth & Install Actions */}
                     <div className="hidden md:flex items-center gap-3">
+                        <PWAInstallButton />
                         <Link
                             href="/login"
                             className="text-body-sm font-semibold text-primary hover:bg-surface-container-low transition-colors px-4 py-2 rounded-DEFAULT"
@@ -153,6 +155,7 @@ const Navbar = () => {
                         </Link>
 
                         <div className="pt-4 border-t border-outline-variant flex flex-col gap-2">
+                            <PWAInstallButton className="w-full justify-center py-2.5 text-sm" />
                             <Link
                                 href="/login"
                                 onClick={() => setMobileMenuOpen(false)}
