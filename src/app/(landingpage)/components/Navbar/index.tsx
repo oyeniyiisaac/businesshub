@@ -20,19 +20,35 @@ const Navbar = () => {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
+    // Prevent background scrolling when mobile menu is open
+    useEffect(() => {
+        if (mobileMenuOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [mobileMenuOpen]);
+
     return (
-        <nav
-            className={`sticky top-0 z-50 w-full h-16 flex items-center transition-all duration-300 ${
-                scrolled
-                    ? 'bg-surface/80 dark:bg-surface/85 backdrop-blur-md border-b border-outline-variant/80 shadow-sm'
-                    : 'bg-surface/60 backdrop-blur-sm border-b border-outline-variant/30'
+        <header
+            className={`sticky top-0 z-50 w-full transition-all duration-300 ${
+                scrolled || mobileMenuOpen
+                    ? 'bg-surface/90 dark:bg-surface/90 backdrop-blur-md border-b border-outline-variant/80 shadow-sm'
+                    : 'bg-surface/70 backdrop-blur-sm border-b border-outline-variant/30'
             }`}
         >
             <div className="max-w-7xl mx-auto px-4 md:px-8 w-full">
-                <div className="flex items-center justify-between">
-
+                {/* Navbar Bar (fixed height h-16) */}
+                <div className="h-16 flex items-center justify-between">
                     {/* Brand Logo */}
-                    <Link href="/" className="flex items-center gap-2 group">
+                    <Link
+                        href="/"
+                        className="flex items-center gap-2 group"
+                        onClick={() => setMobileMenuOpen(false)}
+                    >
                         <div className="w-9 h-9 bg-primary rounded-md flex items-center justify-center group-hover:bg-primary-container transition-colors shadow-sm">
                             <Store className="text-on-primary w-5 h-5" />
                         </div>
@@ -81,7 +97,7 @@ const Navbar = () => {
                         </Link>
                     </div>
 
-                    {/* Auth & Install Actions */}
+                    {/* Desktop Auth & Install Actions */}
                     <div className="hidden md:flex items-center gap-3">
                         <PWAInstallButton />
                         <Link
@@ -98,83 +114,88 @@ const Navbar = () => {
                         </Link>
                     </div>
 
-                    {/* Mobile Menu Toggle Button */}
-                    <button
-                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        className="md:hidden p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container rounded-DEFAULT transition-colors"
-                        aria-label="Toggle Navigation Menu"
-                    >
-                        {mobileMenuOpen ? <Close className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-                    </button>
+                    {/* Mobile Header Actions: Install Icon + Menu Toggle */}
+                    <div className="md:hidden flex items-center gap-1.5">
+                        <PWAInstallButton iconOnly className="p-2" />
+                        <button
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            className="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container rounded-DEFAULT transition-colors"
+                            aria-label="Toggle Navigation Menu"
+                        >
+                            {mobileMenuOpen ? <Close className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                        </button>
+                    </div>
                 </div>
+            </div>
 
-                {/* Mobile Navigation Drawer */}
-                {mobileMenuOpen && (
-                    <div className="md:hidden bg-surface/95 backdrop-blur-lg border border-outline-variant py-4 px-3 space-y-3 mt-2 rounded-xl shadow-xl animate-fadeIn">
+            {/* Mobile Navigation Dropdown Menu (Full View with all links visible) */}
+            {mobileMenuOpen && (
+                <div className="md:hidden border-t border-outline-variant bg-surface/95 backdrop-blur-xl max-h-[calc(100vh-4rem)] overflow-y-auto px-4 py-5 shadow-2xl animate-fadeIn">
+                    <div className="flex flex-col space-y-1">
                         <Link
                             href="/"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container rounded-DEFAULT"
+                            className="px-3.5 py-2.5 text-sm font-semibold text-on-surface hover:text-primary hover:bg-surface-container rounded-lg transition-colors"
                         >
                             Home
                         </Link>
                         <Link
                             href="#features"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container rounded-DEFAULT"
+                            className="px-3.5 py-2.5 text-sm font-semibold text-on-surface hover:text-primary hover:bg-surface-container rounded-lg transition-colors"
                         >
                             Features
                         </Link>
                         <Link
                             href="#how-it-works"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container rounded-DEFAULT"
+                            className="px-3.5 py-2.5 text-sm font-semibold text-on-surface hover:text-primary hover:bg-surface-container rounded-lg transition-colors"
                         >
                             How It Works
                         </Link>
                         <Link
                             href="#use-cases"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container rounded-DEFAULT"
+                            className="px-3.5 py-2.5 text-sm font-semibold text-on-surface hover:text-primary hover:bg-surface-container rounded-lg transition-colors"
                         >
                             Use Cases
                         </Link>
                         <Link
                             href="#benefits"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container rounded-DEFAULT"
+                            className="px-3.5 py-2.5 text-sm font-semibold text-on-surface hover:text-primary hover:bg-surface-container rounded-lg transition-colors"
                         >
                             Why Us
                         </Link>
                         <Link
                             href="#faq"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container rounded-DEFAULT"
+                            className="px-3.5 py-2.5 text-sm font-semibold text-on-surface hover:text-primary hover:bg-surface-container rounded-lg transition-colors"
                         >
                             FAQ
                         </Link>
-
-                        <div className="pt-4 border-t border-outline-variant flex flex-col gap-2">
-                            <PWAInstallButton className="w-full justify-center py-2.5 text-sm" />
-                            <Link
-                                href="/login"
-                                onClick={() => setMobileMenuOpen(false)}
-                                className="text-center text-body-sm font-semibold text-primary bg-surface-container hover:bg-surface-container-high px-4 py-2 rounded-DEFAULT transition-colors"
-                            >
-                                Log In
-                            </Link>
-                            <Link
-                                href="/register"
-                                onClick={() => setMobileMenuOpen(false)}
-                                className="text-center text-body-sm font-semibold bg-primary text-on-primary hover:bg-primary-container px-4 py-2 rounded-DEFAULT transition-colors"
-                            >
-                                Get Started
-                            </Link>
-                        </div>
                     </div>
-                )}
-            </div>
-        </nav>
+
+                    <div className="pt-5 mt-3 border-t border-outline-variant/60 flex flex-col gap-2.5">
+                        <PWAInstallButton className="w-full justify-center py-2.5 text-sm" />
+                        <Link
+                            href="/login"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="text-center text-sm font-semibold text-primary bg-surface-container hover:bg-surface-container-high px-4 py-2.5 rounded-lg transition-colors"
+                        >
+                            Log In
+                        </Link>
+                        <Link
+                            href="/register"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="text-center text-sm font-semibold bg-primary text-on-primary hover:bg-primary-container px-4 py-2.5 rounded-lg shadow-sm transition-colors"
+                        >
+                            Get Started
+                        </Link>
+                    </div>
+                </div>
+            )}
+        </header>
     );
 };
 
