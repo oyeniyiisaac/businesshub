@@ -1,16 +1,32 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Close, Store } from 'google-material-icons/filled';
 import { Menu } from 'google-material-icons/outlined';
-// import { Store, Menu, X } from 'lucide-react'; // Recommended icon package: npm i lucide-react
 
 const Navbar = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [scrolled, setScrolled] = useState(false);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setScrolled(window.scrollY > 15);
+        };
+
+        handleScroll();
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
     return (
-        <nav className="bg-surface-lowest border-b border-outline-variant sticky top-0 z-50 w-full h-16 flex items-center shadow-sm transition-colors">
+        <nav
+            className={`sticky top-0 z-50 w-full h-16 flex items-center transition-all duration-300 ${
+                scrolled
+                    ? 'bg-surface/80 dark:bg-surface/85 backdrop-blur-md border-b border-outline-variant/80 shadow-sm'
+                    : 'bg-surface/60 backdrop-blur-sm border-b border-outline-variant/30'
+            }`}
+        >
             <div className="max-w-7xl mx-auto px-4 md:px-8 w-full">
                 <div className="flex items-center justify-between">
 
@@ -25,7 +41,7 @@ const Navbar = () => {
                     </Link>
 
                     {/* Desktop Navigation Links */}
-                    <div className="hidden md:flex items-center gap-8">
+                    <div className="hidden md:flex items-center gap-7">
                         <Link
                             href="/"
                             className="text-body-sm font-medium text-on-surface-variant hover:text-primary transition-colors"
@@ -39,16 +55,28 @@ const Navbar = () => {
                             Features
                         </Link>
                         <Link
-                            href="#pricing"
+                            href="#how-it-works"
                             className="text-body-sm font-medium text-on-surface-variant hover:text-primary transition-colors"
                         >
-                            Pricing
+                            How It Works
                         </Link>
                         <Link
-                            href="#contact"
+                            href="#use-cases"
                             className="text-body-sm font-medium text-on-surface-variant hover:text-primary transition-colors"
                         >
-                            Contact
+                            Use Cases
+                        </Link>
+                        <Link
+                            href="#benefits"
+                            className="text-body-sm font-medium text-on-surface-variant hover:text-primary transition-colors"
+                        >
+                            Why Us
+                        </Link>
+                        <Link
+                            href="#faq"
+                            className="text-body-sm font-medium text-on-surface-variant hover:text-primary transition-colors"
+                        >
+                            FAQ
                         </Link>
                     </div>
 
@@ -80,41 +108,55 @@ const Navbar = () => {
 
                 {/* Mobile Navigation Drawer */}
                 {mobileMenuOpen && (
-                    <div className="md:hidden bg-surface-lowest border-t border-outline-variant py-4 px-2 space-y-3 mt-2 rounded-b-lg shadow-lg">
+                    <div className="md:hidden bg-surface/95 backdrop-blur-lg border border-outline-variant py-4 px-3 space-y-3 mt-2 rounded-xl shadow-xl animate-fadeIn">
                         <Link
                             href="/"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container-low rounded-DEFAULT"
+                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container rounded-DEFAULT"
                         >
                             Home
                         </Link>
                         <Link
                             href="#features"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container-low rounded-DEFAULT"
+                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container rounded-DEFAULT"
                         >
                             Features
                         </Link>
                         <Link
-                            href="#pricing"
+                            href="#how-it-works"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container-low rounded-DEFAULT"
+                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container rounded-DEFAULT"
                         >
-                            Pricing
+                            How It Works
                         </Link>
                         <Link
-                            href="#contact"
+                            href="#use-cases"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container-low rounded-DEFAULT"
+                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container rounded-DEFAULT"
                         >
-                            Contact
+                            Use Cases
+                        </Link>
+                        <Link
+                            href="#benefits"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container rounded-DEFAULT"
+                        >
+                            Why Us
+                        </Link>
+                        <Link
+                            href="#faq"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="block px-3 py-2 text-body-sm font-medium text-on-surface hover:bg-surface-container rounded-DEFAULT"
+                        >
+                            FAQ
                         </Link>
 
                         <div className="pt-4 border-t border-outline-variant flex flex-col gap-2">
                             <Link
                                 href="/login"
                                 onClick={() => setMobileMenuOpen(false)}
-                                className="text-center text-body-sm font-semibold text-primary bg-surface-container-low hover:bg-surface-container px-4 py-2 rounded-DEFAULT transition-colors"
+                                className="text-center text-body-sm font-semibold text-primary bg-surface-container hover:bg-surface-container-high px-4 py-2 rounded-DEFAULT transition-colors"
                             >
                                 Log In
                             </Link>
