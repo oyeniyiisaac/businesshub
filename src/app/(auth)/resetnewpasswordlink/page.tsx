@@ -94,7 +94,7 @@ function ResetFormContent() {
           text: data.resetForgotPassword.message,
         });
         setTimeout(() => {
-          router.push('/signin');
+          router.push('/login');
         }, 2000);
       }
     } catch (err: any) {
@@ -211,7 +211,7 @@ function ResetFormContent() {
         {/* Back to Sign In Link */}
         <div className="mt-6">
           <Link
-            href="/signin"
+            href="/login"
             className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary-container font-medium transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
