@@ -1,5 +1,7 @@
+import mongoose from "mongoose";
 import { Product } from "@/src/app/model/product.model";
 import { connectDB } from "@/src/lib/connect";
+import { toBusinessQuery, requireBusinessId } from "@/src/lib/tenant";
 
 interface ProductInput {
     name: string;
@@ -27,13 +29,17 @@ interface ProductInput {
 
 export const resolvers = {
     Query: {
-        products: async () => {
+        products: async (_: any, __: any, context: any) => {
             await connectDB();
-            return Product.find();
+            const businessId = context?.user?.businessId;
+            if (!businessId) return [];
+            return Product.find({ businessId: toBusinessQuery(businessId) }).sort({ createdAt: -1 });
         },
-        product: async (_: any, { id }: { id: string }) => {
+        product: async (_: any, { id }: { id: string }, context: any) => {
             await connectDB();
-            return Product.findById(id);
+            const businessId = context?.user?.businessId;
+            if (!businessId) return null;
+            return Product.findOne({ _id: id, businessId: toBusinessQuery(businessId) });
         },
     },
     Mutation: {
@@ -49,9 +55,11 @@ export const resolvers = {
                 inventoryTracking,
                 pricing,
                 stockLevel,
-            }: ProductInput
+            }: ProductInput,
+            context: any
         ) => {
             await connectDB();
+            const businessId = requireBusinessId(context);
 
             if (!name || !category || !pricing?.sellingPrice) {
                 throw new Error("Missing required fields: name, category, and selling price.");
@@ -66,16 +74,17 @@ export const resolvers = {
             }
 
             const newProduct = await Product.create({
-                name,
-                category,
-                brand: brand || undefined,
-                supplier: supplier || "Main Warehouse",
-                description: description || "",
+                businessId: new mongoose.Types.ObjectId(businessId),
+                name: name.trim(),
+                category: category.trim(),
+                brand: brand ? brand.trim() : undefined,
+                supplier: supplier ? supplier.trim() : "Main Warehouse",
+                description: description ? description.trim() : "",
                 imageUrl: imageUrl || "",
                 inventoryTracking: {
-                    sku: inventoryTracking?.sku || "",
+                    sku: inventoryTracking?.sku ? inventoryTracking.sku.trim() : "",
                     unitOfMeasure: inventoryTracking?.unitOfMeasure || "Pcs (Pieces)",
-                    barcode: inventoryTracking?.barcode || "",
+                    barcode: inventoryTracking?.barcode ? inventoryTracking.barcode.trim() : "",
                 },
                 pricing: {
                     costPrice: Number(pricing?.costPrice ?? 0),
@@ -88,14 +97,16 @@ export const resolvers = {
                     enableLowStockAlerts: Boolean(stockLevel?.enableLowStockAlerts ?? true),
                 },
             });
-            console.log("New product created:", newProduct);
+
             return newProduct;
         },
         createProduct: async (
             _: any,
-            args: ProductInput
+            args: ProductInput,
+            context: any
         ) => {
             await connectDB();
+            const businessId = requireBusinessId(context);
 
             const {
                 name,
@@ -114,16 +125,17 @@ export const resolvers = {
             }
 
             const newProduct = await Product.create({
-                name,
-                category,
-                brand: brand || undefined,
-                supplier: supplier || "Main Warehouse",
-                description: description || "",
+                businessId: new mongoose.Types.ObjectId(businessId),
+                name: name.trim(),
+                category: category.trim(),
+                brand: brand ? brand.trim() : undefined,
+                supplier: supplier ? supplier.trim() : "Main Warehouse",
+                description: description ? description.trim() : "",
                 imageUrl: imageUrl || "",
                 inventoryTracking: {
-                    sku: inventoryTracking?.sku || "",
+                    sku: inventoryTracking?.sku ? inventoryTracking.sku.trim() : "",
                     unitOfMeasure: inventoryTracking?.unitOfMeasure || "Pcs (Pieces)",
-                    barcode: inventoryTracking?.barcode || "",
+                    barcode: inventoryTracking?.barcode ? inventoryTracking.barcode.trim() : "",
                 },
                 pricing: {
                     costPrice: Number(pricing?.costPrice ?? 0),
@@ -140,18 +152,20 @@ export const resolvers = {
         },
         updateProduct: async (
             _: any,
-            { id, name, category, brand, supplier, description, imageUrl, inventoryTracking, pricing, stockLevel }: any
+            { id, name, category, brand, supplier, description, imageUrl, inventoryTracking, pricing, stockLevel }: any,
+            context: any
         ) => {
             await connectDB();
+            const businessId = requireBusinessId(context);
 
-            const updatedProduct = await Product.findByIdAndUpdate(
-                id,
+            const updatedProduct = await Product.findOneAndUpdate(
+                { _id: id, businessId: toBusinessQuery(businessId) },
                 {
-                    ...(name ? { name } : {}),
-                    ...(category ? { category } : {}),
-                    ...(brand !== undefined ? { brand } : {}),
-                    ...(supplier !== undefined ? { supplier } : {}),
-                    ...(description !== undefined ? { description } : {}),
+                    ...(name ? { name: name.trim() } : {}),
+                    ...(category ? { category: category.trim() } : {}),
+                    ...(brand !== undefined ? { brand: brand.trim() } : {}),
+                    ...(supplier !== undefined ? { supplier: supplier.trim() } : {}),
+                    ...(description !== undefined ? { description: description.trim() } : {}),
                     ...(imageUrl !== undefined ? { imageUrl } : {}),
                     ...(inventoryTracking ? { inventoryTracking } : {}),
                     ...(pricing ? { pricing } : {}),
@@ -161,14 +175,18 @@ export const resolvers = {
             );
 
             if (!updatedProduct) {
-                throw new Error("Product not found or update failed.");
+                throw new Error("Product not found or update unauthorized.");
             }
 
             return updatedProduct;
         },
-        deleteProduct: async (_: any, { id }: { id: string }) => {
+        deleteProduct: async (_: any, { id }: { id: string }, context: any) => {
             await connectDB();
-            const deletedProduct = await Product.findByIdAndDelete(id);
+            const businessId = requireBusinessId(context);
+            const deletedProduct = await Product.findOneAndDelete({
+                _id: id,
+                businessId: toBusinessQuery(businessId),
+            });
             return Boolean(deletedProduct);
         },
     },

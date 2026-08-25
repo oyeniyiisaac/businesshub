@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Role from "@/src/app/model/role.model";
 import { Staff } from "@/src/app/model/staffRole.model";
 import { connectDB } from "@/src/lib/connect";
+import { toBusinessQuery } from "@/src/lib/tenant";
 
 interface AuthContext {
   user?: {
@@ -87,9 +88,11 @@ const getDefaultModulesForRole = (roleName: string) => {
   }));
 };
 
-const getStaffCountForRole = async (roleName: string, roleId: string) => {
+const getStaffCountForRole = async (roleName: string, roleId: string, businessId?: string) => {
+  if (!businessId) return 0;
   const norm = roleName.toUpperCase().replace(/\s+/g, "_");
   return Staff.countDocuments({
+    businessId: toBusinessQuery(businessId),
     $or: [
       { role: roleName as any },
       { role: norm as any },
@@ -118,14 +121,6 @@ const seedDefaultRoles = async (businessId: string) => {
   }
 };
 
-const toBusinessQuery = (businessId: string | mongoose.Types.ObjectId) => {
-  const idStr = businessId.toString();
-  if (mongoose.Types.ObjectId.isValid(idStr)) {
-    return { $in: [idStr, new mongoose.Types.ObjectId(idStr)] };
-  }
-  return idStr;
-};
-
 export const resolvers = {
   Query: {
     // 1. Fetch all roles for the authenticated business
@@ -147,7 +142,7 @@ export const resolvers = {
 
       return Promise.all(
         roles.map(async (role) => {
-          const userCount = await getStaffCountForRole(role.name, role._id.toString());
+          const userCount = await getStaffCountForRole(role.name, role._id.toString(), businessId);
           return {
             id: role._id.toString(),
             businessId: role.businessId.toString(),
@@ -181,7 +176,7 @@ export const resolvers = {
         throw new Error("Role not found.");
       }
 
-      const userCount = await getStaffCountForRole(role.name, role._id.toString());
+      const userCount = await getStaffCountForRole(role.name, role._id.toString(), businessId);
 
       return {
         id: role._id.toString(),
@@ -373,7 +368,7 @@ export const resolvers = {
 
       await role.save();
 
-      const userCount = await getStaffCountForRole(role.name, role._id.toString());
+      const userCount = await getStaffCountForRole(role.name, role._id.toString(), businessId);
 
       return {
         id: role._id.toString(),
@@ -399,7 +394,7 @@ export const resolvers = {
 
       const role = await Role.findOne({
         _id: id,
-        businessId,
+        businessId: toBusinessQuery(businessId),
       });
 
       if (!role) {
@@ -410,14 +405,14 @@ export const resolvers = {
         throw new Error("System roles are protected and cannot be deleted.");
       }
 
-      const assignedStaffCount = await getStaffCountForRole(role.name, role._id.toString());
+      const assignedStaffCount = await getStaffCountForRole(role.name, role._id.toString(), businessId);
       if (assignedStaffCount > 0) {
         throw new Error(
           `Cannot delete role: ${assignedStaffCount} staff member(s) are currently assigned to it.`
         );
       }
 
-      await Role.deleteOne({ _id: id });
+      await Role.deleteOne({ _id: id, businessId: toBusinessQuery(businessId) });
       return true;
     },
   },

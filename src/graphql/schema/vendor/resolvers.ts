@@ -1,5 +1,7 @@
+import mongoose from "mongoose";
 import { IVendor, PaymentTerms, Vendor } from "@/src/app/model/vendor";
 import { connectDB } from "@/src/lib/connect";
+import { toBusinessQuery, requireBusinessId } from "@/src/lib/tenant";
 
 interface CreateVendorInput {
   businessName: string;
@@ -44,24 +46,32 @@ const mapVendor = (v: any) => ({
 
 export const resolvers = {
   Query: {
-    vendors: async () => {
+    vendors: async (_: any, __: any, context: any) => {
       await connectDB();
-      const list = await Vendor.find().sort({ createdAt: -1 });
+      const businessId = context?.user?.businessId;
+      if (!businessId) return [];
+      const list = await Vendor.find({ businessId: toBusinessQuery(businessId) }).sort({ createdAt: -1 });
       return list.map(mapVendor);
     },
-    vendor: async (_: unknown, { id }: { id: string }) => {
+    vendor: async (_: unknown, { id }: { id: string }, context: any) => {
       await connectDB();
-      const v = await Vendor.findById(id);
+      const businessId = context?.user?.businessId;
+      if (!businessId) return null;
+      const v = await Vendor.findOne({ _id: id, businessId: toBusinessQuery(businessId) });
       return v ? mapVendor(v) : null;
     },
-    suppliers: async () => {
+    suppliers: async (_: any, __: any, context: any) => {
       await connectDB();
-      const list = await Vendor.find().sort({ createdAt: -1 });
+      const businessId = context?.user?.businessId;
+      if (!businessId) return [];
+      const list = await Vendor.find({ businessId: toBusinessQuery(businessId) }).sort({ createdAt: -1 });
       return list.map(mapVendor);
     },
-    supplier: async (_: unknown, { id }: { id: string }) => {
+    supplier: async (_: unknown, { id }: { id: string }, context: any) => {
       await connectDB();
-      const v = await Vendor.findById(id);
+      const businessId = context?.user?.businessId;
+      if (!businessId) return null;
+      const v = await Vendor.findOne({ _id: id, businessId: toBusinessQuery(businessId) });
       return v ? mapVendor(v) : null;
     },
   },
@@ -69,11 +79,14 @@ export const resolvers = {
   Mutation: {
     createVendor: async (
       _: unknown,
-      { input }: { input: CreateVendorInput }
+      { input }: { input: CreateVendorInput },
+      context: any
     ) => {
       await connectDB();
+      const businessId = requireBusinessId(context);
       const payload: any = {
         ...input,
+        businessId: new mongoose.Types.ObjectId(businessId),
         businessName: input.businessName.trim(),
         outstandingBalance: input.outstandingBalance ?? input.initialBalanceOwed ?? 0,
         initialBalanceOwed: input.initialBalanceOwed ?? input.outstandingBalance ?? 0,
@@ -86,39 +99,53 @@ export const resolvers = {
 
     updateVendor: async (
       _: unknown,
-      { id, input }: { id: string; input: UpdateVendorInput }
+      { id, input }: { id: string; input: UpdateVendorInput },
+      context: any
     ) => {
       await connectDB();
+      const businessId = requireBusinessId(context);
       const updateData: any = { ...input };
       if (input.outstandingBalance !== undefined) {
         updateData.outstandingBalance = Number(input.outstandingBalance);
       }
-      const updated = await Vendor.findByIdAndUpdate(id, updateData, {
-        new: true,
-        runValidators: true,
-      });
+      const updated = await Vendor.findOneAndUpdate(
+        { _id: id, businessId: toBusinessQuery(businessId) },
+        updateData,
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
       if (!updated) {
-        throw new Error("Supplier/Vendor not found");
+        throw new Error("Supplier/Vendor not found or unauthorized");
       }
       return mapVendor(updated);
     },
 
     deleteVendor: async (
       _: unknown,
-      { id }: { id: string }
+      { id }: { id: string },
+      context: any
     ): Promise<boolean> => {
       await connectDB();
-      const result = await Vendor.findByIdAndDelete(id);
+      const businessId = requireBusinessId(context);
+      const result = await Vendor.findOneAndDelete({
+        _id: id,
+        businessId: toBusinessQuery(businessId),
+      });
       return !!result;
     },
 
     createSupplier: async (
       _: unknown,
-      { input }: { input: CreateVendorInput }
+      { input }: { input: CreateVendorInput },
+      context: any
     ) => {
       await connectDB();
+      const businessId = requireBusinessId(context);
       const payload: any = {
         ...input,
+        businessId: new mongoose.Types.ObjectId(businessId),
         businessName: input.businessName.trim(),
         outstandingBalance: input.outstandingBalance ?? input.initialBalanceOwed ?? 0,
         initialBalanceOwed: input.initialBalanceOwed ?? input.outstandingBalance ?? 0,
@@ -131,29 +158,40 @@ export const resolvers = {
 
     updateSupplier: async (
       _: unknown,
-      { id, input }: { id: string; input: UpdateVendorInput }
+      { id, input }: { id: string; input: UpdateVendorInput },
+      context: any
     ) => {
       await connectDB();
+      const businessId = requireBusinessId(context);
       const updateData: any = { ...input };
       if (input.outstandingBalance !== undefined) {
         updateData.outstandingBalance = Number(input.outstandingBalance);
       }
-      const updated = await Vendor.findByIdAndUpdate(id, updateData, {
-        new: true,
-        runValidators: true,
-      });
+      const updated = await Vendor.findOneAndUpdate(
+        { _id: id, businessId: toBusinessQuery(businessId) },
+        updateData,
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
       if (!updated) {
-        throw new Error("Supplier not found");
+        throw new Error("Supplier not found or unauthorized");
       }
       return mapVendor(updated);
     },
 
     deleteSupplier: async (
       _: unknown,
-      { id }: { id: string }
+      { id }: { id: string },
+      context: any
     ): Promise<boolean> => {
       await connectDB();
-      const result = await Vendor.findByIdAndDelete(id);
+      const businessId = requireBusinessId(context);
+      const result = await Vendor.findOneAndDelete({
+        _id: id,
+        businessId: toBusinessQuery(businessId),
+      });
       return !!result;
     },
   },

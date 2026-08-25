@@ -96,7 +96,10 @@ const handleSignIn = async (
   }
 
   // 7. Sign JWT token
-  const secret = process.env.JWT_SECRET || "mercytech";
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is not defined.");
+  }
   const token = jwt.sign(
     {
       userId: account._id.toString(),

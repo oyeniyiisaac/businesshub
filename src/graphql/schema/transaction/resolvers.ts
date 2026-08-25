@@ -1,7 +1,9 @@
+import mongoose from "mongoose";
 import Transaction from "@/src/app/model/transaction";
 import { Product } from "@/src/app/model/product.model";
 import Customer from "@/src/app/model/customer";
 import { connectDB } from "@/src/lib/connect";
+import { toBusinessQuery, requireBusinessId } from "@/src/lib/tenant";
 
 export const resolvers = {
   Query: {
@@ -9,10 +11,12 @@ export const resolvers = {
       await connectDB();
       const { search, status, paymentMethod, limit = 50, page = 1 } = args;
 
-      const query: any = {};
-      if (context?.user?.businessId) {
-        query.businessId = context.user.businessId;
-      }
+      const businessId = context?.user?.businessId;
+      if (!businessId) return [];
+
+      const query: any = {
+        businessId: toBusinessQuery(businessId),
+      };
 
       if (status && status !== "ALL") {
         query.paymentStatus = status.toUpperCase();
@@ -52,14 +56,20 @@ export const resolvers = {
         paymentStatus: r.paymentStatus,
         transactionRef: r.transactionRef,
         notes: r.notes,
-        createdAt: r.createdAt.toISOString(),
-        updatedAt: r.updatedAt?.toISOString(),
+        createdAt: r.createdAt ? r.createdAt.toISOString() : new Date().toISOString(),
+        updatedAt: r.updatedAt ? r.updatedAt.toISOString() : null,
       }));
     },
 
     transaction: async (_: any, { id }: { id: string }, context: any) => {
       await connectDB();
-      const r = await Transaction.findById(id);
+      const businessId = context?.user?.businessId;
+      if (!businessId) return null;
+
+      const r = await Transaction.findOne({
+        _id: id,
+        businessId: toBusinessQuery(businessId),
+      });
       if (!r) return null;
 
       return {
@@ -78,19 +88,24 @@ export const resolvers = {
         paymentStatus: r.paymentStatus,
         transactionRef: r.transactionRef,
         notes: r.notes,
-        createdAt: r.createdAt.toISOString(),
-        updatedAt: r.updatedAt?.toISOString(),
+        createdAt: r.createdAt ? r.createdAt.toISOString() : new Date().toISOString(),
+        updatedAt: r.updatedAt ? r.updatedAt.toISOString() : null,
       };
     },
 
     transactionMetrics: async (_: any, __: any, context: any) => {
       await connectDB();
-      const query: any = {};
-      if (context?.user?.businessId) {
-        query.businessId = context.user.businessId;
+      const businessId = context?.user?.businessId;
+      if (!businessId) {
+        return {
+          totalRevenue: 0,
+          avgOrderValue: 0,
+          totalTransactions: 0,
+          pendingPayments: 0,
+        };
       }
 
-      const all = await Transaction.find(query);
+      const all = await Transaction.find({ businessId: toBusinessQuery(businessId) });
       const totalTransactions = all.length;
 
       let totalRevenue = 0;
@@ -118,6 +133,7 @@ export const resolvers = {
   Mutation: {
     createTransaction: async (_: any, { input }: any, context: any) => {
       await connectDB();
+      const businessId = requireBusinessId(context);
 
       const receiptNumber =
         input.receiptNumber ||
@@ -139,7 +155,7 @@ export const resolvers = {
 
       const newTx = new Transaction({
         receiptNumber,
-        businessId: context?.user?.businessId,
+        businessId: new mongoose.Types.ObjectId(businessId),
         branchId: input.branchId || "Main Branch",
         customer: customerPayload,
         cashier: cashierPayload,
@@ -157,14 +173,17 @@ export const resolvers = {
 
       const saved = await newTx.save();
 
-      // Automatically decrement stock quantities for all purchased items
+      // Automatically decrement stock quantities for purchased items scoped to this business
       if (Array.isArray(input.items)) {
         for (const item of input.items) {
           if (item.productId && !item.productId.startsWith("prod-")) {
             try {
-              await Product.findByIdAndUpdate(item.productId, {
-                $inc: { "stockLevel.initialQuantity": -item.quantity },
-              });
+              await Product.findOneAndUpdate(
+                { _id: item.productId, businessId: toBusinessQuery(businessId) },
+                {
+                  $inc: { "stockLevel.initialQuantity": -item.quantity },
+                }
+              );
             } catch {
               // ignore invalid ObjectId
             }
@@ -172,15 +191,18 @@ export const resolvers = {
         }
       }
 
-      // If customer is registered in DB, update their totalPurchases and loyaltyPoints
+      // If customer is registered in DB, update their totalPurchases and loyaltyPoints scoped to this business
       if (input.customer?.customerId && !input.customer.customerId.startsWith("cust-")) {
         try {
-          await Customer.findByIdAndUpdate(input.customer.customerId, {
-            $inc: {
-              totalPurchases: input.grandTotal,
-              loyaltyPoints: customerPayload.loyaltyPointsEarned,
-            },
-          });
+          await Customer.findOneAndUpdate(
+            { _id: input.customer.customerId, businessId: toBusinessQuery(businessId) },
+            {
+              $inc: {
+                totalPurchases: input.grandTotal,
+                loyaltyPoints: customerPayload.loyaltyPointsEarned,
+              },
+            }
+          );
         } catch {
           // ignore
         }
@@ -213,13 +235,18 @@ export const resolvers = {
       context: any
     ) => {
       await connectDB();
+      const businessId = requireBusinessId(context);
       const updateData: any = { paymentStatus: status.toUpperCase() };
       if (transactionRef) {
         updateData.transactionRef = transactionRef;
       }
 
-      const updated = await Transaction.findByIdAndUpdate(id, updateData, { new: true });
-      if (!updated) throw new Error("Transaction not found");
+      const updated = await Transaction.findOneAndUpdate(
+        { _id: id, businessId: toBusinessQuery(businessId) },
+        updateData,
+        { new: true }
+      );
+      if (!updated) throw new Error("Transaction not found or unauthorized");
 
       return {
         id: updated._id.toString(),
@@ -244,7 +271,11 @@ export const resolvers = {
 
     deleteTransaction: async (_: any, { id }: { id: string }, context: any) => {
       await connectDB();
-      const res = await Transaction.findByIdAndDelete(id);
+      const businessId = requireBusinessId(context);
+      const res = await Transaction.findOneAndDelete({
+        _id: id,
+        businessId: toBusinessQuery(businessId),
+      });
       return !!res;
     },
   },

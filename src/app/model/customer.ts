@@ -6,6 +6,7 @@ interface account {
 }
 
 export interface Customer extends Document {
+    businessId: mongoose.Types.ObjectId;
     name: string;
     email: string;
     phone: string;
@@ -16,6 +17,8 @@ export interface Customer extends Document {
     creditBalance: number;
     loyaltyProgram: boolean;
     accountBalance: account;
+    createdAt: Date;
+    updatedAt: Date;
 }
 
 const accountSchema = new Schema<account>(
@@ -28,10 +31,16 @@ const accountSchema = new Schema<account>(
 
 const customerSchema = new mongoose.Schema(
     {
-        name: { type: String, required: true },
-        email: { type: String, required: true, unique: true },
-        phone: { type: String, required: true },
-        address: { type: String, required: true },
+        businessId: {
+            type: Schema.Types.ObjectId,
+            ref: 'Business',
+            required: [true, 'Business ID is required'],
+            index: true,
+        },
+        name: { type: String, required: true, trim: true },
+        email: { type: String, required: true, trim: true, lowercase: true },
+        phone: { type: String, required: true, trim: true },
+        address: { type: String, required: true, trim: true },
         status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' },
         totalPurchases: { type: Number, default: 0 },
         loyaltyPoints: { type: Number, default: 0 },

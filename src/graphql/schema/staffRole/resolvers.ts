@@ -1,5 +1,7 @@
+import mongoose from "mongoose";
 import { RoleEnum, Staff } from "@/src/app/model/staffRole.model";
 import { connectDB } from "@/src/lib/connect";
+import { toBusinessQuery, requireBusinessId } from "@/src/lib/tenant";
 import bcrypt from "bcryptjs";
 
 type CreateStaffInput = {
@@ -38,12 +40,15 @@ export const resolvers = {
   Query: {
     staffMembers: async (_: unknown, __: unknown, context: AuthContext) => {
       await connectDB();
-      const filter = context.user?.businessId ? { businessId: context.user.businessId } : {};
-      return Staff.find(filter);
+      const businessId = context.user?.businessId;
+      if (!businessId) return [];
+      return Staff.find({ businessId: toBusinessQuery(businessId) }).sort({ createdAt: -1 });
     },
-    staffMember: async (_: unknown, { id }: { id: string }) => {
+    staffMember: async (_: unknown, { id }: { id: string }, context: AuthContext) => {
       await connectDB();
-      return Staff.findById(id);
+      const businessId = context.user?.businessId;
+      if (!businessId) return null;
+      return Staff.findOne({ _id: id, businessId: toBusinessQuery(businessId) });
     },
   },
   Mutation: {
@@ -53,6 +58,8 @@ export const resolvers = {
       context: AuthContext
     ) => {
       await connectDB();
+      const businessId = requireBusinessId(context);
+
       const {
         fullName,
         email,
@@ -78,14 +85,12 @@ export const resolvers = {
       const saltRounds = Number(process.env.SALT_ROUNDS) || 10;
       const hashedPassword = await bcrypt.hash(temporaryPassword, saltRounds);
 
-      const businessId = context.user?.businessId || null;
-
       const newStaff = new Staff({
-        businessId,
+        businessId: new mongoose.Types.ObjectId(businessId),
         fullName: fullName.trim(),
         email: normalizedEmail,
         phoneNumber: phoneNumber?.trim() || null,
-        password: hashedPassword, // Hash the password securely
+        password: hashedPassword,
         role,
         branch: branchId,
         mustChangePassword: mustChangePassword ?? true,
@@ -97,9 +102,12 @@ export const resolvers = {
     },
     updateStaff: async (
       _: unknown,
-      { id, input }: { id: string; input: UpdateStaffInput }
+      { id, input }: { id: string; input: UpdateStaffInput },
+      context: AuthContext
     ) => {
       await connectDB();
+      const businessId = requireBusinessId(context);
+
       const { branchId, password, temporaryPassword, ...restInput } = input;
 
       const updateData: Record<string, unknown> = { ...restInput };
@@ -111,11 +119,25 @@ export const resolvers = {
         updateData.password = await bcrypt.hash(pwdToHash, saltRounds);
       }
 
-      return Staff.findByIdAndUpdate(id, updateData, { new: true });
+      const updated = await Staff.findOneAndUpdate(
+        { _id: id, businessId: toBusinessQuery(businessId) },
+        updateData,
+        { new: true }
+      );
+
+      if (!updated) {
+        throw new Error("Staff member not found or unauthorized.");
+      }
+
+      return updated;
     },
-    deleteStaff: async (_: unknown, { id }: { id: string }) => {
+    deleteStaff: async (_: unknown, { id }: { id: string }, context: AuthContext) => {
       await connectDB();
-      const deletedStaff = await Staff.findByIdAndDelete(id);
+      const businessId = requireBusinessId(context);
+      const deletedStaff = await Staff.findOneAndDelete({
+        _id: id,
+        businessId: toBusinessQuery(businessId),
+      });
       return Boolean(deletedStaff);
     },
   },

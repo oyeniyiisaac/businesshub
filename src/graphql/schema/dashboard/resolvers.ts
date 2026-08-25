@@ -2,19 +2,37 @@ import Transaction from "@/src/app/model/transaction";
 import { Expense } from "@/src/app/model/expense";
 import { Product } from "@/src/app/model/product.model";
 import { connectDB } from "@/src/lib/connect";
+import { toBusinessQuery } from "@/src/lib/tenant";
 
 export const resolvers = {
   Query: {
     dashboardMetrics: async (_: any, { period }: { period?: string }, context: any) => {
       await connectDB();
 
-      const query: any = {};
-      if (context?.user?.businessId) {
-        query.businessId = context.user.businessId;
+      const businessId = context?.user?.businessId;
+      if (!businessId) {
+        return {
+          totalRevenue: 0,
+          totalRevenueFormatted: "₦0",
+          revenueGrowth: "0%",
+          totalSales: 0,
+          salesGrowth: "0%",
+          netProfit: 0,
+          netProfitFormatted: "₦0",
+          profitGrowth: "0%",
+          totalExpenses: 0,
+          totalExpensesFormatted: "₦0",
+          expenseGrowth: "0%",
+          weeklySalesTrend: [],
+          lowStockItems: [],
+          recentTransactions: [],
+        };
       }
 
-      // 1. Fetch transactions directly from DB
-      const transactions = await Transaction.find(query).sort({ createdAt: -1 });
+      const businessQuery = { businessId: toBusinessQuery(businessId) };
+
+      // 1. Fetch transactions strictly for this business
+      const transactions = await Transaction.find(businessQuery).sort({ createdAt: -1 });
 
       let totalRevenue = 0;
       const totalSales = transactions.length;
@@ -31,8 +49,8 @@ export const resolvers = {
         }
       }
 
-      // 2. Fetch expenses directly from DB
-      const expenses = await Expense.find(query);
+      // 2. Fetch expenses strictly for this business
+      const expenses = await Expense.find(businessQuery);
       let totalExpenses = 0;
       for (const exp of expenses) {
         if (exp.status === "Approved" || !exp.status) {
@@ -68,17 +86,8 @@ export const resolvers = {
         };
       });
 
-      // 5. Fetch Real Low Stock Items directly from DB
-      const productQuery: any = {};
-      if (context?.user?.businessId) {
-        productQuery.$or = [
-          { businessId: context.user.businessId },
-          { businessId: { $exists: false } },
-          { businessId: null },
-        ];
-      }
-
-      const allProducts = await Product.find(productQuery);
+      // 5. Fetch Real Low Stock Items strictly for this business
+      const allProducts = await Product.find(businessQuery);
       const lowStockProducts = allProducts
         .filter((p: any) => {
           const qty = p.stockLevel?.initialQuantity ?? 0;
@@ -94,7 +103,7 @@ export const resolvers = {
         count: p.stockLevel?.initialQuantity ?? 0,
       }));
 
-      // 6. Recent Transactions directly from DB
+      // 6. Recent Transactions strictly for this business
       const recentTransactions = transactions.slice(0, 50).map((t: any) => ({
         id: t._id.toString(),
         transactionId: t.receiptNumber.startsWith("#") ? t.receiptNumber : `#${t.receiptNumber}`,

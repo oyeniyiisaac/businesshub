@@ -1,5 +1,7 @@
+import mongoose from "mongoose";
 import { Expense, PaymentMethod } from "@/src/app/model/expense";
 import { connectDB } from "@/src/lib/connect";
+import { toBusinessQuery, requireBusinessId } from "@/src/lib/tenant";
 
 interface ExpenseInput {
     amount: number;
@@ -30,23 +32,29 @@ const mapExpense = (e: any) => ({
 
 export const resolvers = {
     Query: {
-        expenses: async () => {
+        expenses: async (_: any, __: any, context: any) => {
             await connectDB();
-            const list = await Expense.find().sort({ dateOfExpense: -1, createdAt: -1 });
+            const businessId = context?.user?.businessId;
+            if (!businessId) return [];
+            const list = await Expense.find({ businessId: toBusinessQuery(businessId) }).sort({ dateOfExpense: -1, createdAt: -1 });
             return list.map(mapExpense);
         },
-        expense: async (_: any, { id }: { id: string }) => {
+        expense: async (_: any, { id }: { id: string }, context: any) => {
             await connectDB();
-            const e = await Expense.findById(id);
+            const businessId = context?.user?.businessId;
+            if (!businessId) return null;
+            const e = await Expense.findOne({ _id: id, businessId: toBusinessQuery(businessId) });
             return e ? mapExpense(e) : null;
         },
     },
     Mutation: {
         createExpense: async (
             _: any,
-            { input }: { input: ExpenseInput }
+            { input }: { input: ExpenseInput },
+            context: any
         ) => {
             await connectDB();
+            const businessId = requireBusinessId(context);
             const {
                 amount,
                 description,
@@ -64,6 +72,7 @@ export const resolvers = {
             }
 
             const newExpense = new Expense({
+                businessId: new mongoose.Types.ObjectId(businessId),
                 amount: Number(amount),
                 description: description.trim(),
                 dateOfExpense: dateOfExpense ? new Date(dateOfExpense) : new Date(),
@@ -80,9 +89,11 @@ export const resolvers = {
         },
         updateExpense: async (
             _: any,
-            { id, input }: { id: string; input: Partial<ExpenseInput> }
+            { id, input }: { id: string; input: Partial<ExpenseInput> },
+            context: any
         ) => {
             await connectDB();
+            const businessId = requireBusinessId(context);
             const updateData: any = { ...input };
             if (input.dateOfExpense) {
                 updateData.dateOfExpense = new Date(input.dateOfExpense);
@@ -91,16 +102,24 @@ export const resolvers = {
                 updateData.amount = Number(input.amount);
             }
 
-            const updatedExpense = await Expense.findByIdAndUpdate(id, updateData, { new: true });
+            const updatedExpense = await Expense.findOneAndUpdate(
+                { _id: id, businessId: toBusinessQuery(businessId) },
+                updateData,
+                { new: true }
+            );
             if (!updatedExpense) {
-                throw new Error("Expense not found.");
+                throw new Error("Expense not found or unauthorized.");
             }
 
             return mapExpense(updatedExpense);
         },
-        deleteExpense: async (_: any, { id }: { id: string }) => {
+        deleteExpense: async (_: any, { id }: { id: string }, context: any) => {
             await connectDB();
-            const deleted = await Expense.findByIdAndDelete(id);
+            const businessId = requireBusinessId(context);
+            const deleted = await Expense.findOneAndDelete({
+                _id: id,
+                businessId: toBusinessQuery(businessId),
+            });
             return !!deleted;
         },
     },

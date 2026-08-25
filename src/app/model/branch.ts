@@ -13,6 +13,7 @@ export interface IBusinessHours {
 
 export interface IBranch extends Document {
   _id: mongoose.Types.ObjectId;
+  businessId: mongoose.Types.ObjectId;
   // Branch Details
   branchName: string;
   branchCode: string;
@@ -46,6 +47,12 @@ const BusinessHoursSchema = new Schema<IBusinessHours>(
 
 const BranchSchema = new Schema<IBranch>(
   {
+    businessId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Business',
+      required: [true, 'Business ID is required'],
+      index: true,
+    },
     branchName: {
       type: String,
       required: [true, 'Branch Name is required'],
@@ -54,7 +61,6 @@ const BranchSchema = new Schema<IBranch>(
     branchCode: {
       type: String,
       required: [true, 'Branch Code is required'],
-      unique: true,
       uppercase: true,
       trim: true,
     },

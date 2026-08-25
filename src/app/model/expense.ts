@@ -10,6 +10,7 @@ export enum PaymentMethod {
 
 export interface IExpense extends Document {
   _id: mongoose.Types.ObjectId;
+  businessId: mongoose.Types.ObjectId;
   category: string;
   amount: number;
   dateOfExpense: Date;
@@ -25,6 +26,12 @@ export interface IExpense extends Document {
 
 const ExpenseSchema = new Schema<IExpense>(
   {
+    businessId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Business',
+      required: [true, 'Business ID is required'],
+      index: true,
+    },
     category: {
       type: String,
       required: [true, 'Expense Category is required'],

@@ -1,5 +1,7 @@
+import mongoose from "mongoose";
 import Customer from "@/src/app/model/customer";
 import { connectDB } from "@/src/lib/connect";
+import { toBusinessQuery, requireBusinessId } from "@/src/lib/tenant";
 
 interface CustomerInput {
     id?: string;
@@ -20,9 +22,11 @@ interface CustomerInput {
 
 export const resolvers = {
     Query: {
-        customers: async () => {
+        customers: async (_: any, __: any, context: any) => {
             await connectDB();
-            const list = await Customer.find().sort({ createdAt: -1 });
+            const businessId = context?.user?.businessId;
+            if (!businessId) return [];
+            const list = await Customer.find({ businessId: toBusinessQuery(businessId) }).sort({ createdAt: -1 });
             return list.map((c) => ({
                 id: c._id.toString(),
                 name: c.name,
@@ -39,9 +43,11 @@ export const resolvers = {
                 updatedAt: c.updatedAt ? c.updatedAt.toISOString() : null,
             }));
         },
-        customer: async (_: any, { id }: { id: string }) => {
+        customer: async (_: any, { id }: { id: string }, context: any) => {
             await connectDB();
-            const c = await Customer.findById(id);
+            const businessId = context?.user?.businessId;
+            if (!businessId) return null;
+            const c = await Customer.findOne({ _id: id, businessId: toBusinessQuery(businessId) });
             if (!c) return null;
             return {
                 id: c._id.toString(),
@@ -63,9 +69,11 @@ export const resolvers = {
     Mutation: {
         addCustomer: async (
             _: any,
-            args: CustomerInput
+            args: CustomerInput,
+            context: any
         ) => {
             await connectDB();
+            const businessId = requireBusinessId(context);
 
             const {
                 name,
@@ -85,6 +93,7 @@ export const resolvers = {
             }
 
             const newCustomer = new Customer({
+                businessId: new mongoose.Types.ObjectId(businessId),
                 name: name.trim(),
                 email: email.trim().toLowerCase(),
                 phone: phone.trim(),
@@ -117,9 +126,11 @@ export const resolvers = {
         },
         updateCustomer: async (
             _: any,
-            args: CustomerInput
+            args: CustomerInput,
+            context: any
         ) => {
             await connectDB();
+            const businessId = requireBusinessId(context);
             const { id, name, phone, address, status, totalPurchases, loyaltyPoints, creditBalance, accountBalance, loyaltyProgram } = args;
 
             const updateData: any = {};
@@ -136,9 +147,13 @@ export const resolvers = {
             if (accountBalance !== undefined) updateData.accountBalance = accountBalance;
             if (loyaltyProgram !== undefined) updateData.loyaltyProgram = loyaltyProgram;
 
-            const updated = await Customer.findByIdAndUpdate(id, updateData, { new: true });
+            const updated = await Customer.findOneAndUpdate(
+                { _id: id, businessId: toBusinessQuery(businessId) },
+                updateData,
+                { new: true }
+            );
             if (!updated) {
-                throw new Error("Customer not found.");
+                throw new Error("Customer not found or unauthorized.");
             }
 
             return {
@@ -155,11 +170,15 @@ export const resolvers = {
                 loyaltyProgram: updated.loyaltyProgram,
             };
         },
-        deleteCustomer: async (_: any, { id }: { id: string }) => {
+        deleteCustomer: async (_: any, { id }: { id: string }, context: any) => {
             await connectDB();
-            const deletedCustomer = await Customer.findByIdAndDelete(id);
+            const businessId = requireBusinessId(context);
+            const deletedCustomer = await Customer.findOneAndDelete({
+                _id: id,
+                businessId: toBusinessQuery(businessId),
+            });
             if (!deletedCustomer) {
-                throw new Error("Customer not found.");
+                throw new Error("Customer not found or unauthorized.");
             }
             return true;
         },

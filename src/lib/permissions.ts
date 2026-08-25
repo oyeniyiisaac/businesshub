@@ -1,5 +1,6 @@
 import Role, { IPermissionAction } from "@/src/app/model/role.model";
 import { connectDB } from "@/src/lib/connect";
+import { toBusinessQuery } from "@/src/lib/tenant";
 
 export type PermissionActionKey = "view" | "create" | "edit" | "delete" | "approve";
 
@@ -40,7 +41,7 @@ export async function checkRolePermission(
 
   // Search role by ID or Name
   const role = await Role.findOne({
-    businessId,
+    businessId: toBusinessQuery(businessId),
     $or: [
       { name: { $regex: new RegExp(`^${roleNameOrId}$`, "i") } },
       { name: { $regex: new RegExp(`^${normalized.replace(/_/g, " ")}$`, "i") } },
@@ -99,7 +100,7 @@ export async function getRolePermissionMatrix(
   }
 
   const role = await Role.findOne({
-    businessId,
+    businessId: toBusinessQuery(businessId),
     $or: [
       { name: { $regex: new RegExp(`^${roleNameOrId}$`, "i") } },
       { name: { $regex: new RegExp(`^${normalized.replace(/_/g, " ")}$`, "i") } },

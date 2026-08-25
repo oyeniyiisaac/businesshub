@@ -76,7 +76,7 @@ const TransactionCashierSchema = new Schema<ITransactionCashier>(
 const TransactionSchema = new Schema<ITransaction>(
   {
     receiptNumber: { type: String, required: true, unique: true, index: true },
-    businessId: { type: Schema.Types.ObjectId, ref: "Business" },
+    businessId: { type: Schema.Types.ObjectId, ref: "Business", index: true },
     branchId: { type: String, default: "Main Branch" },
     customer: { type: TransactionCustomerSchema, required: true },
     cashier: { type: TransactionCashierSchema, required: true },

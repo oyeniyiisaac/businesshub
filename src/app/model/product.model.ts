@@ -22,9 +22,10 @@ interface IStockLevel {
 
 // MAIN PRODUCT INTERFACE
 export interface IProduct extends Document {
+  businessId: mongoose.Types.ObjectId;
   name: string;
-  category: Schema.Types.ObjectId;
-  brand?: Schema.Types.ObjectId;
+  category: string;
+  brand?: string;
   supplier?: string;
   description?: string;
   imageUrl?: string;
@@ -33,6 +34,8 @@ export interface IProduct extends Document {
   inventoryTracking: IInventoryTracking;
   pricing: IPricingAndTax;
   stockLevel: IStockLevel;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // 2. DEFINE MONGOOSE SCHEMAS FOR NESTED OBJECTS
@@ -68,6 +71,12 @@ const stockLevelSchema = new Schema<IStockLevel>(
 
 const productSchema = new Schema<IProduct>(
   {
+    businessId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Business',
+      required: [true, 'Business ID is required'],
+      index: true,
+    },
     name: { type: String, required: true, trim: true },
     category: { type: String, required: true, trim: true }, 
     brand: { type: String, trim: true }, 

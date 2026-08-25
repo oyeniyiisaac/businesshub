@@ -9,6 +9,7 @@ export enum PaymentTerms {
 
 export interface IVendor extends Document {
   _id: mongoose.Types.ObjectId;
+  businessId: mongoose.Types.ObjectId;
   businessName: string;
   category?: string;
   tin?: string;
@@ -30,6 +31,12 @@ export interface IVendor extends Document {
 
 const VendorSchema = new Schema<IVendor>(
   {
+    businessId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Business',
+      required: [true, 'Business ID is required'],
+      index: true,
+    },
     businessName: {
       type: String,
       required: [true, 'Business Name is required'],
