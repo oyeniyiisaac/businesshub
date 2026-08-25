@@ -1,6 +1,5 @@
 import gql from "graphql-tag";
 
-
 export const typeDefs = gql`
     type ResetPasswordResponse {
         success: Boolean!
@@ -9,6 +8,7 @@ export const typeDefs = gql`
 
     type Mutation {
         forgetPassword(workEmail: String!): ResetPasswordResponse!
+        resetForgotPasswordWithOtp(email: String!, otp: String!, newPassword: String!): ResetPasswordResponse!
         resetForgotPassword(token: String!, newPassword: String!): ResetPasswordResponse!
     }
- `;
+`;

@@ -21,6 +21,7 @@ export interface IStaff extends Document {
   isActive: boolean;
   mustChangePassword: boolean;
   resetPasswordToken?: string | null;
+  resetPasswordOtp?: string | null;
   resetPasswordExpires?: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -71,6 +72,10 @@ const StaffSchema = new Schema<IStaff>(
       default: true,
     },
     resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordOtp: {
       type: String,
       default: null,
     },

@@ -2,9 +2,11 @@
 
 import { Store } from "google-material-icons/filled";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 
 const ForgetPassword = () => {
+    const router = useRouter();
     const [email, setEmail] = useState("");
     const [loading, setLoading] = useState(false);
     const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -45,17 +47,20 @@ const ForgetPassword = () => {
             const result = await response.json();
 
             if (result.errors?.length) {
-                throw new Error(result.errors[0].message || "Failed to send reset link.");
+                throw new Error(result.errors[0].message || "Failed to send verification code.");
             }
 
             const data = result.data?.forgetPassword;
             if (data?.success) {
                 setFeedback({
                     type: "success",
-                    text: data.message || "A password reset link has been sent to your email.",
+                    text: data.message || "A 6-digit code has been sent. Redirecting to verification page...",
                 });
+                setTimeout(() => {
+                    router.push(`/resetpassword?email=${encodeURIComponent(cleanEmail)}`);
+                }, 1200);
             } else {
-                throw new Error(data?.message || "Failed to send password reset link.");
+                throw new Error(data?.message || "Failed to send verification code.");
             }
         } catch (err: any) {
             setFeedback({
@@ -81,8 +86,8 @@ const ForgetPassword = () => {
                 <h1 className="text-xl md:text-2xl font-bold text-on-surface text-center">
                     Forgot your password?
                 </h1>
-                <p className="mt-2 text-xs text-on-surface-variant text-center max-w-70 leading-relaxed mb-6">
-                    Enter your work email address and we will send you a link to reset your password.
+                <p className="mt-2 text-xs text-on-surface-variant text-center max-w-75 leading-relaxed mb-6">
+                    Enter your work email address and we will send you a 6-digit verification code to reset your password.
                 </p>
 
                 {/* Feedback Banner */}
@@ -130,13 +135,23 @@ const ForgetPassword = () => {
                         {loading ? (
                             <>
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                <span>Sending link...</span>
+                                <span>Sending code...</span>
                             </>
                         ) : (
-                            "Send Reset Link"
+                            "Send Verification Code"
                         )}
                     </button>
                 </form>
+
+                {/* Already have code? */}
+                <div className="mt-4 text-center w-full">
+                    <Link
+                        href="/resetpassword"
+                        className="text-xs font-medium text-primary hover:underline"
+                    >
+                        Already have a code? Reset password here →
+                    </Link>
+                </div>
 
                 {/* Back to Login Link */}
                 <div className="mt-6 text-center w-full">
