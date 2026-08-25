@@ -5,48 +5,20 @@ import { Staff } from "@/src/app/model/staffRole.model";
 import { connectDB } from "@/src/lib/connect";
 import { resend } from "@/src/lib/resend";
 
-const resolveAppUrl = (context?: any): string => {
-    // 1. Explicit environment variable if configured
+const resolveAppUrl = (): string => {
     if (process.env.NEXT_PUBLIC_APP_URL) {
         return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
     }
     if (process.env.APP_URL) {
         return process.env.APP_URL.replace(/\/$/, "");
     }
-
-    // 2. Vercel deployment URL
-    if (process.env.VERCEL_URL) {
-        return `https://${process.env.VERCEL_URL.replace(/\/$/, "")}`;
-    }
-
-    // 3. Dynamic HTTP Request headers (Origin or Host) from the client's current browser request
-    if (context?.req) {
-        const headers = context.req.headers;
-        const origin = typeof headers?.get === "function" ? headers.get("origin") : headers?.["origin"];
-        if (origin) {
-            return origin.replace(/\/$/, "");
-        }
-
-        const forwardedHost = typeof headers?.get === "function" ? headers.get("x-forwarded-host") : headers?.["x-forwarded-host"];
-        const proto = (typeof headers?.get === "function" ? headers.get("x-forwarded-proto") : headers?.["x-forwarded-proto"]) || "https";
-        if (forwardedHost) {
-            return `${proto}://${forwardedHost}`.replace(/\/$/, "");
-        }
-
-        const host = typeof headers?.get === "function" ? headers.get("host") : headers?.["host"];
-        if (host) {
-            const isLocal = host.includes("localhost") || host.includes("127.0.0.1");
-            return `${isLocal ? "http" : "https"}://${host}`.replace(/\/$/, "");
-        }
-    }
-
-    return "http://localhost:3000";
+    return "https://businessshophub.vercel.app";
 };
 
 export const resolvers = {
     Mutation: {
         // 1. Request Password Reset Link (Sends Email)
-        forgetPassword: async (_: any, { workEmail }: { workEmail: string }, context: any) => {
+        forgetPassword: async (_: any, { workEmail }: { workEmail: string }) => {
             const inputEmail = (workEmail || "").trim().toLowerCase();
 
             if (!inputEmail) {
@@ -86,7 +58,7 @@ export const resolvers = {
             account.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour validity
             await account.save();
 
-            const appUrl = resolveAppUrl(context);
+            const appUrl = resolveAppUrl();
             const resetUrl = `${appUrl}/resetnewpasswordlink?token=${resetToken}`;
             const recipientName = isStaff ? account.fullName : (account.ownerName || account.businessName || "User");
             const senderEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
