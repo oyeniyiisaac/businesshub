@@ -109,7 +109,7 @@ const handleSignIn = async (
       isStaff: isStaff,
     },
     secret,
-    { expiresIn: "7d" }
+    { expiresIn: "1hr" }
   );
 
   console.log(`Sign-in successful for ${isStaff ? "Staff" : "Business"}:`, userEmail, "businessId:", businessId);
